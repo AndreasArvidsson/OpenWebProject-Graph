@@ -13,12 +13,15 @@ The project is based on four core ideas:
 
 # Usage
 
-Import
+## Installation
+`npm install owp.json-graph --save`
+
+## Import
 ```javascript
 import Graph from "owp.graph";
 ```
 
-Create instance
+## Create instance
 ```javascript
 const graph = Graph(parentDom, options);
 ```
