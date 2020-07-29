@@ -1,0 +1,50 @@
+{
+    "name": "owp.graph",
+    "description": "High performance graph plotter",
+    "version": "1.0.0",
+    "main": "dist/owp.graph.min.js",
+    "files": [
+        "dist/*",
+        "images/*"
+    ],
+    "scripts": {
+        "start": "webpack-dev-server --config webpack.config.js --mode development --bundle docs --port 9090 --open",
+        "buildProd": "webpack --config webpack.config.js --mode production --bundle dist",
+        "buildDev": "webpack --config webpack.config.js --mode development --bundle dist",
+        "buildDocs": "webpack --config webpack.config.js --mode production --bundle docs",
+        "build": "npm run buildProd && npm run buildDev && npm run buildDocs"
+    },
+    "keywords": [
+        "graph",
+        "plot",
+        "Open Web Project",
+        "owp"
+    ],
+    "author": "Andreas Arvidsson",
+    "license": "MIT",
+    "homepage": "https://github.com/AndreasArvidsson/OpenWebProject-graph",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/AndreasArvidsson/OpenWebProject-graph.git"
+    },
+    "bugs": {
+        "url": "https://github.com/AndreasArvidsson/OpenWebProject-graph/issues"
+    },
+    "devDependencies": {
+        "webpack": "latest",
+        "webpack-cli": "latest",
+        "webpack-dev-server": "latest",
+        "html-webpack-plugin": "latest",
+        "mini-css-extract-plugin": "latest",
+        "babel-loader": "latest",
+        "css-loader": "latest",
+        "@babel/core": "latest",
+        "eslint-loader": "latest",
+        "file-loader": "latest",
+        "eslint": "latest",
+        "babel-eslint": "latest",
+        "bootstrap": "latest",
+        "uglifyjs-webpack-plugin": "latest",
+        "terser-webpack-plugin": "latest"
+    }
+}

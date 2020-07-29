@@ -1,0 +1,38 @@
+
+#root {
+    width: 100%;
+    padding: 20px 0;
+}
+
+.graph-divs {
+    width: 100%;
+    padding-bottom: 50%;
+    margin-top: 20px;
+}
+
+button {
+    margin-top: 10px;
+}
+
+textarea {
+    width: 100%;
+    height: 400px;
+}
+
+.legendDiv {
+    width: 100%; 
+    height: 20px;
+    margin-top: 10px;   
+}
+
+.graph-divs,
+.code {
+    border: 1px solid black;
+    border-radius: 4px;
+}
+
+.code,
+.text-options {
+    background-color: #fafafa;
+    margin-top: 10px;
+}
