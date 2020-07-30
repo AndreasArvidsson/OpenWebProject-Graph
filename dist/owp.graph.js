@@ -109,6 +109,10 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony import */ var _Is__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ./Is */ "./src/Is.js");
 
 
+
+if (!Math.log10) {
+  Math.log10 = _Static__WEBPACK_IMPORTED_MODULE_0__["default"].log10;
+}
 /** 
  * The Axis class is a single axis to the Graph class.
  */
@@ -122,6 +126,7 @@ __webpack_require__.r(__webpack_exports__);
  * @param {string} orientation - X or Y axis.
  * @returns {Axis}
  */
+
 
 function Axis(options, graphCanvas, axis) {
   if (axis.toLowerCase() === "x") {
@@ -847,7 +852,7 @@ function secureFloat(val) {
   return parseFloat(val.toPrecision(15));
 }
 
-const log10 = Math.log10;
+const log10 = _Static__WEBPACK_IMPORTED_MODULE_0__["default"].log10;
 
 /***/ }),
 
@@ -1752,25 +1757,29 @@ Interaction.prototype._addMouseTrackingEvents = function () {
         } else {
           valueY = dataY[res.found];
         }
-      } //Calculate Y-value from min max coordinates.
-      else {
-          const valueXMin = dataXCallback(res.min);
-          const valueXMax = dataXCallback(res.max);
-          const span = valueXMax - valueXMin;
-          const weightMin = 1 - (valueX - valueXMin) / span;
-          const weightMax = 1 - (valueXMax - valueX) / span;
-          let valueMin, valueMax;
+      } //Binary search returned min and max at same value without a found.
+      //There is no matching value. Just abort.
+      else if (res.min === res.max) {
+          break;
+        } //Calculate Y-value from min max coordinates.
+        else {
+            const valueXMin = dataXCallback(res.min);
+            const valueXMax = dataXCallback(res.max);
+            const span = valueXMax - valueXMin;
+            const weightMin = 1 - (valueX - valueXMin) / span;
+            const weightMax = 1 - (valueXMax - valueX) / span;
+            let valueMin, valueMax;
 
-          if (graph._options.graph.smoothing) {
-            valueMin = _Static__WEBPACK_IMPORTED_MODULE_0__["default"].calculateSmothingValue(res.min, graph._options.graph.smoothing, dataY);
-            valueMax = _Static__WEBPACK_IMPORTED_MODULE_0__["default"].calculateSmothingValue(res.max, graph._options.graph.smoothing, dataY);
-          } else {
-            valueMin = dataY[res.min];
-            valueMax = dataY[res.max];
+            if (graph._options.graph.smoothing) {
+              valueMin = _Static__WEBPACK_IMPORTED_MODULE_0__["default"].calculateSmothingValue(res.min, graph._options.graph.smoothing, dataY);
+              valueMax = _Static__WEBPACK_IMPORTED_MODULE_0__["default"].calculateSmothingValue(res.max, graph._options.graph.smoothing, dataY);
+            } else {
+              valueMin = dataY[res.min];
+              valueMax = dataY[res.max];
+            }
+
+            valueY = valueMin * weightMin + valueMax * weightMax;
           }
-
-          valueY = valueMin * weightMin + valueMax * weightMax;
-        }
 
       const pixelY = graph._axes.y.valueToPixel(valueY);
 
@@ -3823,6 +3832,8 @@ Static.round = function (value, decimals) {
     return Math.round(value * multiplier) / multiplier;
   }
 };
+
+Static.log10 = x => Math.log(x) / Math.LN10;
 
 /* harmony default export */ __webpack_exports__["default"] = (Static);
 
