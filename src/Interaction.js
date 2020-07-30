@@ -194,6 +194,11 @@ Interaction.prototype._addMouseTrackingEvents = function () {
                     valueY = dataY[res.found];
                 }
             }
+            //Binary search returned min and max at same value without a found.
+            //There is no matching value. Just abort.
+            else if (res.min === res.max) {
+                break;
+            }
             //Calculate Y-value from min max coordinates.
             else {
                 const valueXMin = dataXCallback(res.min);

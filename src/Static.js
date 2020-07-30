@@ -154,4 +154,6 @@ Static.round = function (value, decimals) {
     }
 };
 
+Static.log10 = (x) => Math.log(x) / Math.LN10;
+
 export default Static;

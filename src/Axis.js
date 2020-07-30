@@ -1,6 +1,10 @@
 import Static from "./Static";
 import Is from "./Is";
 
+if (!Math.log10) {
+    Math.log10 = Static.log10;
+}
+
 /** 
  * The Axis class is a single axis to the Graph class.
  */
@@ -659,4 +663,4 @@ function secureFloat(val) {
     return parseFloat(val.toPrecision(15));
 }
 
-const log10 = Math.log10;
+const log10 = Static.log10;

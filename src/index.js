@@ -545,9 +545,11 @@ Graph.prototype._renderTitle = function () {
     let x;
     if (this._options.title.align.toLowerCase() === "left") {
         x = this._canvas.graph.getContentX() + this._options.title.offsetX;
-    } else if (this._options.title.align.toLowerCase() === "center") {
+    }
+    else if (this._options.title.align.toLowerCase() === "center") {
         x = this._canvas.graph.getContentX() + this._canvas.graph.getContentWidth() / 2 + this._options.title.offsetX;
-    } else if (this._options.title.align.toLowerCase() === "right") {
+    }
+    else if (this._options.title.align.toLowerCase() === "right") {
         x = this._canvas.graph.getContentX() + this._canvas.graph.getContentWidth() - this._options.title.offsetX;
     }
     const y = this._options.title.offsetY;
