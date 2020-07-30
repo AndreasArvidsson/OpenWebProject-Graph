@@ -29,7 +29,6 @@ function getOptions(title) {
 function init() {
     let options, tmp;
 
-
     options = getOptions("Simple example");
     delete options.graph.dataY;
     options.graph.dataX = [
@@ -90,9 +89,13 @@ function init() {
     tmp.code.innerText = "graph.zoom(100, -10, 400, 10);";
 
     options = getOptions("Highlighting enabled");
+    options.highlight = {
+        x1: 50,
+        y1: -0.7,
+        x2: 150,
+        y2: 0.2
+    };
     tmp = addGraph(options, true);
-    tmp.graph.highlight(50, -10, 150, 0);
-    tmp.code.innerText = "graph.highlight(50, -10, 150, 0);";
 
     options = getOptions("Spinner enabled");
     tmp = addGraph(options, true);

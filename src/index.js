@@ -56,8 +56,6 @@ Graph.prototype._init = function (parent, options) {
     this._parent = parent;
     this._options = new Options();
 
-    this._highlights = [];
-
     this._canvas = {
         background: new Canvas(parent, "background"),
         graph: new Canvas(parent, "graph", true),
@@ -197,6 +195,12 @@ Graph.prototype._renderLegend = function (values) {
     }
 };
 
+/**
+ * Get dummy dataY array.
+ * @public
+ * @returns {array}
+ */
+Graph.createDummyData = Static.createDummyData;
 
 /**
  * Get options instance.
@@ -206,6 +210,13 @@ Graph.prototype._renderLegend = function (values) {
 Graph.prototype.getOptions = function () {
     return this._options;
 };
+
+/**
+ * Get default options.
+ * @public
+ * @returns {object}
+ */
+Graph.getDefaultOptions = Options.getDefault;
 
 /**
  * Sets all options to their default values.
@@ -270,37 +281,6 @@ Graph.prototype.resetZoom = function () {
     this._axes.x.clearOverridenBounds();
     this._axes.y.clearOverridenBounds();
     this._plot();
-};
-
-/**
- * Clears/removes current highlight.
- * @public
- */
-Graph.prototype.clearHighlight = function () {
-    this._canvas.highlight.clear();
-    this._highlights = [];
-};
-
-/**
- * Highlight the given are of the graph.
- * @public
- * @param {number} x1 - First x-axis value.
- * @param {number} y1 - First y-axis value.
- * @param {number} x2 - Second x-axis value.
- * @param {number} y2 - Second y-axis value.
- * @param {string} color - Color of the selected area.
- */
-Graph.prototype.highlight = function (x1, y1, x2, y2, color) {
-    this._highlights.push({
-        x1: x1,
-        y1: y1,
-        x2: x2,
-        y2: y2,
-        color: color ? color : "rgba(0, 0, 255, 0.2)"
-    });
-    if (this._axes.x.hasBounds() && this._axes.y.hasBounds()) {
-        this._renderHighlight();
-    }
 };
 
 /**
@@ -563,35 +543,24 @@ Graph.prototype._renderTitle = function () {
  */
 Graph.prototype._renderHighlight = function () {
     this._canvas.highlight.clear();
-    for (let i = 0; i < this._highlights.length; ++i) {
-        let x1, y1, x2, y2;
-        //Convert values to pixels.
-        if (Is.isNull(this._highlights[i].x1)) {
-            x1 = 0;
-        }
-        else {
-            x1 = this._axes.x.valueToPixel(this._highlights[i].x1);
-        }
-        if (Is.isNull(this._highlights[i].y1)) {
-            y1 = 0;
-        }
-        else {
-            y1 = this._axes.y.valueToPixel(this._highlights[i].y1);
-        }
-        if (Is.isNull(this._highlights[i].x2)) {
-            x2 = this._canvas.graph.getContentWidth();
-        }
-        else {
-            x2 = this._axes.x.valueToPixel(this._highlights[i].x2);
-        }
-        if (Is.isNull(this._highlights[i].y2)) {
-            y2 = this._canvas.graph.getContentHeight();
-        }
-        else {
-            y2 = this._axes.y.valueToPixel(this._highlights[i].y2);
-        }
-        this._canvas.highlight.fillRectangle2(x1, y1, x2, y2, this._highlights[i].color);
+    const h = this._options.highlight;
+    if (Is.isNull(h.x1) && Is.isNull(h.y1) && Is.isNull(h.x2) && Is.isNull(h.y2)) {
+        return;
     }
+    //Convert values to pixels.
+    const x1 = Is.isNull(h.x1)
+        ? 0
+        : this._axes.x.valueToPixel(h.x1);
+    const y1 = Is.isNull(h.y1)
+        ? 0
+        : this._axes.y.valueToPixel(h.y1);
+    const x2 = Is.isNull(h.x2)
+        ? this._canvas.graph.getContentWidth()
+        : this._axes.x.valueToPixel(h.x2);
+    const y2 = Is.isNull(h.y2)
+        ? this._canvas.graph.getContentHeight()
+        : this._axes.y.valueToPixel(h.y2);
+    this._canvas.highlight.fillRectangle2(x1, y1, x2, y2, h.color);
 };
 
 /**
@@ -787,8 +756,5 @@ Graph.prototype._getOffset = function (array) {
     }
     return Math.round(offset);
 };
-
-Graph.createDummyData = Static.createDummyData;
-Graph.getDefaultOptions = Options.getDefault;
 
 export default Graph;

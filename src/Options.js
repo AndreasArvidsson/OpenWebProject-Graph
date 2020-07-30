@@ -50,10 +50,10 @@ Options.prototype.getColor = function (index) {
 Options.prototype.getName = function (index) {
     if (this.graph.names[index] !== undefined) {
         return this.graph.names[index];
-    } 
+    }
     else if (index > 0) {
         return "DATA" + (index);
-    } 
+    }
     else {
         return "X";
     }
@@ -101,6 +101,13 @@ Options.getDefault = function () {
             offsetY: 2,
             align: "right",
             newLine: false
+        },
+        highlight: {
+            x1: null,
+            y1: null,
+            x2: null,
+            y2: null,
+            color: "rgba(0, 0, 255, 0.2)"
         },
         graph: {
             dataX: [],
@@ -212,7 +219,6 @@ Options.prototype.set = function (options) {
     function setMembers(oldObj, newObj, path) {
         for (let i in newObj) {
             if (!Array.isArray(oldObj) && !Object.prototype.hasOwnProperty.call(oldObj, i)) {
-                //            if (!Array.isArray(oldObj) && !oldObj.hasOwnProperty(i)) { TODO
                 console.warn("owp.graph WARNING: Can't set unexisting option: " + path + (path.length ? "." + i : i));
                 continue;
             }
@@ -355,121 +361,36 @@ Options.prototype._evalOptions = function () {
         console.error("owp.graph ERROR: invalid option. " + name + ": " + msg);
         optionsOk = false;
     }
-    function evalObject() {
-        var res = Is.isObject(obj);
+    function evalType(type) {
+        const res = Is.isOfType(obj, type);
         if (!res) {
-            error("\"" + obj + "\" is not an object.");
-        }
-        return res;
-    }
-    function evalBool() {
-        var res = Is.isBool(obj);
-        if (!res) {
-            error("\"" + obj + "\" is not a bool.");
-        }
-        return res;
-    }
-    function evalNumber() {
-        var res = Is.isNumber(obj);
-        if (!res) {
-            error("\"" + obj + "\" is not a number.");
-        }
-        return res;
-    }
-    function evalInt() {
-        var res = Is.isInt(obj);
-        if (!res) {
-            error("\"" + obj + "\" is not an integer.");
-        }
-        return res;
-    }
-    function evalString() {
-        var res = Is.isString(obj);
-        if (!res) {
-            error("\"" + obj + "\" is not a string.");
-        }
-        return res;
-    }
-    function evalArray() {
-        var res = Is.isArray(obj);
-        res = true;
-        if (!res) {
-            error("\"" + obj + "\" is not an array.");
-        }
-        return res;
-    }
-    function evalFunction() {
-        var res = Is.isFunction(obj);
-        if (!res) {
-            error("\"" + obj + "\" is not a function.");
-        }
-        return res;
-    }
-    function evalAlign(noCenter) {
-        var res = Is.isAlignment(obj, noCenter);
-        if (!res) {
-            error("\"" + obj + "\" is not an valid alignment.");
-        }
-        return res;
-    }
-    function evalColor() {
-        var res = Is.isColor(obj);
-        if (!res) {
-            error("\"" + obj + "\" is not a valid color.");
-        }
-        return res;
-    }
-    function evalFont() {
-        var res = Is.isString(obj);
-        if (!res) {
-            error("\"" + obj + "\" is not a valid font.");
-        }
-        return res;
-    }
-    function evalSize() {
-        var res = Is.isSize(obj);
-        if (!res) {
-            error("\"" + obj + "\" is not a valid size.");
-        }
-        return res;
-    }
-    function evalBorderStyle() {
-        var res = Is.isBorderStyle(obj);
-        if (!res) {
-            error("\"" + obj + "\" is not a valid border style.");
-        }
-        return res;
-    }
-    function evalBorderWidth() {
-        var res = Is.isBorderWidth(obj);
-        if (!res) {
-            error("\"" + obj + "\" is not a valid border width.");
-        }
-        return res;
-    }
-    function evalCompositeOperation() {
-        var res = Is.isCompositeOperation(obj);
-        if (!res) {
-            error("\"" + obj + "\" is not a composite operation.");
+            error("\"" + obj + "\" is not of type: " + type);
         }
         return res;
     }
     function evalArrayContains(type) {
-        var res = Is.isContent(obj, type);
+        const res = Is.isContent(obj, type);
         if (!res) {
             error("\"[" + obj + "]\" contains object type other than: " + type + ".");
         }
         return res;
     }
+    function evalAlign(noCenter) {
+        const res = Is.isAlignment(obj, noCenter);
+        if (!res) {
+            error("\"" + obj + "\" is not an valid alignment.");
+        }
+        return res;
+    }
     function evalCond(cond) {
-        var res = eval(cond);
+        const res = eval(cond);
         if (!res) {
             cond = cond.replaceAll("obj2", name2).trim();
             cond = cond.replaceAll("obj.", "").trim();
             cond = cond.replaceAll("obj", "").trim();
             if (Is.isArray(obj)) {
                 error("Failed condition: " + cond);
-            } 
+            }
             else {
                 error("\"" + obj + "\" failed condition: " + cond);
             }
@@ -478,74 +399,74 @@ Options.prototype._evalOptions = function () {
     }
 
     set("debug");
-    evalBool();
+    evalType("bool");
 
     set("interaction");
-    if (evalObject()) {
+    if (evalType("object")) {
         set("interaction.resize");
-        evalBool();
+        evalType("bool");
 
         set("interaction.trackMouse");
-        evalBool();
+        evalType("bool");
 
         set("interaction.zoom");
-        evalBool();
+        evalType("bool");
 
         set("interaction.smoothing");
-        evalBool();
+        evalType("bool");
     }
 
     set("title");
-    if (evalObject()) {
+    if (evalType("object")) {
         set("title.bold");
-        evalBool();
+        evalType("bool");
 
         set("title.label");
-        evalString();
+        evalType("string");
 
         set("title.size");
-        evalInt();
+        evalType("int");
         evalCond("obj > 0");
 
         set("title.offsetX");
-        evalInt();
+        evalType("int");
 
         set("title.offsetY");
-        evalInt();
+        evalType("int");
 
         set("title.padding");
-        evalInt();
+        evalType("int");
 
         set("title.font");
-        evalFont();
+        evalType("font");
 
         set("title.color");
-        evalColor();
+        evalType("color");
 
         set("title.align");
         evalAlign();
     }
 
     set("legend");
-    if (evalObject()) {
+    if (evalType("object")) {
         set("legend.location");
-        evalString();
+        evalType("string");
 
         set("legend.font");
-        evalFont();
+        evalType("font");
 
         set("legend.size");
-        if (evalInt()) {
+        if (evalType("int")) {
             evalCond("obj > 0");
         }
 
         set("legend.offsetX");
-        if (evalInt()) {
+        if (evalType("int")) {
             evalCond("obj >= 0");
         }
 
         set("legend.offsetY");
-        if (evalInt()) {
+        if (evalType("int")) {
             evalCond("obj >= 0");
         }
 
@@ -553,13 +474,31 @@ Options.prototype._evalOptions = function () {
         evalAlign(true);
 
         set("legend.newLine");
-        evalBool();
+        evalType("bool");
+    }
+
+    set("highlight");
+    if (evalType("object")) {
+        set("highlight.x1");
+        evalType("number|null");
+
+        set("highlight.y1");
+        evalType("number|null");
+
+        set("highlight.x2");
+        evalType("number|null");
+
+        set("highlight.y2");
+        evalType("number|null");
+
+        set("highlight.color");
+        evalType("color");
     }
 
     set("graph");
-    if (evalObject()) {
+    if (evalType("object")) {
         set("graph.dataX");
-        if (evalArray()) {
+        if (evalType("array")) {
             evalArrayContains("anyArray");
 
             set2("graph.dataY");
@@ -569,7 +508,7 @@ Options.prototype._evalOptions = function () {
         }
 
         set("graph.dataY");
-        if (evalArray()) {
+        if (evalType("array")) {
             evalArrayContains("anyArray");
             set2("graph.dataX");
             //Only one dataX(incl implicit). All dataY have to be of the same size.
@@ -596,108 +535,108 @@ Options.prototype._evalOptions = function () {
         }
 
         set("graph.colors");
-        if (evalArray()) {
+        if (evalType("array")) {
             evalArrayContains("color");
         }
 
         set("graph.names");
-        if (evalArray()) {
+        if (evalType("array")) {
             evalArrayContains("string");
         }
 
         set("graph.lineWidth");
-        if (evalNumber()) {
+        if (evalType("number")) {
             evalCond("obj >= 0");
         }
 
         set("graph.smoothing");
-        if (evalInt()) {
+        if (evalType("int")) {
             evalCond("obj >= 0");
         }
 
         set("graph.simplify");
-        if (evalNumber()) {
+        if (evalType("number")) {
             evalCond("obj >= 0 && obj <= 1");
         }
 
         set("graph.fill");
-        evalBool();
+        evalType("bool");
 
         set("graph.compositeOperation");
-        evalCompositeOperation();
+        evalType("compositeOperation");
     }
 
     set("axes");
-    if (evalObject()) {
+    if (evalType("object")) {
         set("axes.tickMarkers");
-        if (evalObject()) {
+        if (evalType("object")) {
             set("axes.tickMarkers.show");
-            evalBool();
+            evalType("bool");
 
             set("axes.tickMarkers.length");
-            if (evalInt()) {
+            if (evalType("int")) {
                 evalCond("obj > 0");
             }
 
             set("axes.tickMarkers.width");
-            if (evalInt()) {
+            if (evalType("int")) {
                 evalCond("obj > 0");
             }
 
             set("axes.tickMarkers.offset");
-            if (evalInt()) {
+            if (evalType("int")) {
                 evalCond("obj >= 0");
             }
 
             set("axes.tickMarkers.color");
-            evalColor();
+            evalType("color");
         }
 
         set("axes.tickLabels");
-        if (evalObject()) {
+        if (evalType("object")) {
             set("axes.tickLabels.show");
-            evalBool();
+            evalType("bool");
 
             set("axes.tickLabels.color");
-            evalColor();
+            evalType("color");
 
             set("axes.tickLabels.font");
-            evalFont();
+            evalType("font");
 
             set("axes.tickLabels.size");
-            if (evalInt()) {
+            if (evalType("int")) {
                 evalCond("obj > 0");
             }
 
             set("axes.tickLabels.width");
-            if (evalInt()) {
+            if (evalType("int")) {
                 evalCond("obj > 0");
             }
 
             set("axes.tickLabels.offset");
-            if (evalInt()) {
+            if (evalType("int")) {
                 evalCond("obj >= 0");
             }
         }
 
         set("axes.labels");
-        if (evalObject()) {
+        if (evalType("object")) {
             set("axes.labels.color");
-            evalColor();
+            evalType("color");
 
             set("axes.labels.font");
-            evalFont();
+            evalType("font");
 
             set("axes.labels.size");
-            if (evalInt()) {
+            if (evalType("int")) {
                 evalCond("obj > 0");
             }
 
             set("axes.labels.offset");
-            evalInt();
+            evalType("int");
 
             set("axes.labels.padding");
-            if (evalInt()) {
+            if (evalType("int")) {
                 evalCond("obj >= 0");
             }
         }
@@ -706,38 +645,38 @@ Options.prototype._evalOptions = function () {
         var axes = ["axes.x", "axes.y"];
         for (var i = 0; i < axes.length; ++i) {
             set(axes[i]);
-            if (evalObject()) {
+            if (evalType("object")) {
                 set(axes[i] + ".show");
-                evalBool();
+                evalType("bool");
 
                 set(axes[i] + ".inverted");
-                evalBool();
+                evalType("bool");
 
                 set(axes[i] + ".log");
-                evalBool();
+                evalType("bool");
 
                 set(axes[i] + "." + (axes[i] === "axes.x" ? "height" : "width"));
-                evalInt();
+                evalType("int");
                 evalCond("obj >= 0");
 
                 set(axes[i] + ".grid");
-                if (evalObject()) {
+                if (evalType("object")) {
                     set(axes[i] + ".grid.width");
-                    evalInt();
+                    evalType("int");
                     evalCond("obj >= 0");
 
                     set(axes[i] + ".grid.color");
-                    evalColor();
+                    evalType("color");
                 }
 
                 set(axes[i] + ".label");
-                evalString();
+                evalType("string");
 
                 set(axes[i] + ".bounds");
-                if (evalObject()) {
+                if (evalType("object")) {
                     set(axes[i] + ".bounds.min");
                     if (!Is.isNull(obj)) {
-                        evalNumber();
+                        evalType("number");
                         set2(axes[i] + ".log");
                         if (obj2 && obj <= 0) {
                             error("\"[" + obj + "]\" When axis is logarithmic all bounds must be greather than 0.");
@@ -746,7 +685,7 @@ Options.prototype._evalOptions = function () {
 
                     set(axes[i] + ".bounds.max");
                     if (!Is.isNull(obj)) {
-                        evalNumber();
+                        evalType("number");
                         set2(axes[i] + ".log");
                         if (obj2 && obj <= 0) {
                             error("\"[" + obj + "]\" When axis is logarithmic all bounds must be greather than 0.");
@@ -762,113 +701,113 @@ Options.prototype._evalOptions = function () {
 
                 set(axes[i] + ".legendValueFormatter");
                 if (!Is.isNull(obj)) {
-                    evalFunction();
+                    evalType("function");
                 }
 
                 set(axes[i] + ".tickerValuePreFormatter");
                 if (!Is.isNull(obj)) {
-                    evalFunction();
+                    evalType("function");
                 }
 
                 set(axes[i] + ".tickerValuePostFormatter");
                 if (!Is.isNull(obj)) {
-                    evalFunction();
+                    evalType("function");
                 }
 
                 set(axes[i] + ".tickerLabelFormatter");
                 if (!Is.isNull(obj)) {
-                    evalFunction();
+                    evalType("function");
                 }
 
                 set(axes[i] + ".ticker");
                 if (!Is.isNull(obj)) {
-                    evalFunction();
+                    evalType("function");
                 }
             }
         }
     }
 
     set("border");
-    if (evalObject()) {
+    if (evalType("object")) {
         set("border.style");
-        evalBorderStyle();
+        evalType("borderStyle");
 
         set("border.color");
-        evalColor();
+        evalType("color");
 
         set("border.width");
-        evalBorderWidth();
+        evalType("borderWidth");
     }
 
     set("spinner");
-    if (evalObject()) {
+    if (evalType("object")) {
         set("spinner.show");
-        evalBool();
+        evalType("bool");
 
         set("spinner.lines");
-        if (evalInt()) {
+        if (evalType("int")) {
             evalCond("obj > 0");
         }
 
         set("spinner.length");
-        if (evalInt()) {
+        if (evalType("int")) {
             evalCond("obj > 0");
         }
 
         set("spinner.width");
-        if (evalInt()) {
+        if (evalType("int")) {
             evalCond("obj > 0");
         }
 
         set("spinner.radius");
-        if (evalInt()) {
+        if (evalType("int")) {
             evalCond("obj > 0");
         }
 
         set("spinner.corners");
-        if (evalNumber()) {
+        if (evalType("number")) {
             evalCond("obj >= 0 && obj <= 1");
         }
 
         set("spinner.rotate");
-        if (evalInt()) {
+        if (evalType("int")) {
             evalCond("obj >= 0");
         }
 
         set("spinner.direction");
-        if (evalInt()) {
+        if (evalType("int")) {
             evalCond("obj === -1 || obj === 1");
         }
 
         set("spinner.color");
-        evalColor();
+        evalType("color");
 
         set("spinner.speed");
-        if (evalNumber()) {
+        if (evalType("number")) {
             evalCond("obj > 0");
         }
 
         set("spinner.trail");
-        if (evalInt()) {
+        if (evalType("int")) {
             evalCond("obj >= 0");
         }
 
         set("spinner.shadow");
-        evalBool();
+        evalType("bool");
 
         set("spinner.hwaccel");
-        evalBool();
+        evalType("bool");
 
         set("spinner.position");
-        if (evalString()) {
+        if (evalType("string")) {
             evalCond("obj === 'relative' || obj === 'absolute'");
         }
 
         set("spinner.top");
-        evalSize();
+        evalType("size");
 
         set("spinner.left");
-        evalSize();
+        evalType("size");
     }
 
     this._isOk = optionsOk;
@@ -906,6 +845,13 @@ Options.prototype._createMembers = function () {
         offsetY: null,
         align: null,
         newLine: null
+    };
+    this.highlight = {
+        x1: null,
+        y1: null,
+        x2: null,
+        y2: null,
+        color: null
     };
     this.graph = {
         dataX: null,
@@ -1039,6 +985,13 @@ Options.prototype._createMembers = function () {
  @property {int} legend.offsetY - X-axis offset in pixels. Between legend and graph top.
  @property {int} legend.align -  The legend alignment. ["left", "right"]
  @property {int} legend.newLine -  If true a new line is made between each data set.
+
+ @property {object} highlight - Options regarding highlighting.
+ @property {bool} highlight.x1 - X-axis low value. 
+ @property {string} highlight.y1 - Y-axis low value.
+ @property {int} highlight.x2 - X-axis high value.
+ @property {int} highlight.y2 - Y-axis high value.
+ @property {string} highlight.color - Color of the highlight.
 
  @property {object} graph - Options regarding the graph curve.
  @property {array<array>} graph.dataX - List of data sets for the X-axis. Can contain typed arrays.

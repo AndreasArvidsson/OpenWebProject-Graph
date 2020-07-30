@@ -26,7 +26,7 @@ Is.isNull = function (obj) {
  * @returns {bool}
  */
 Is.isObject = function (obj) {
-    return obj !== null && typeof obj === 'object' && !Is.isArray(obj);
+    return obj !== null && typeof obj === "object" && !Is.isArray(obj);
 };
 
 /**
@@ -233,6 +233,7 @@ Is.getCompareCallback = function (type) {
         case "int":
             return Is.isInt;
         case "string":
+        case "font": //TODO
             return Is.isString;
         case "bool":
             return Is.isBool;
@@ -250,16 +251,18 @@ Is.getCompareCallback = function (type) {
             return Is.isColor;
         case "size":
             return Is.isSize;
-        case 'alignment':
+        case "alignment":
             return Is.isAlignment;
-        case 'compositeOperation':
+        case "compositeOperation":
             return Is.isCompositeOperation;
-        case 'borderStyle':
+        case "borderStyle":
             return Is.isBorderStyle;
-        case 'borderWidth':
+        case "borderWidth":
             return Is.isBorderWidth;
-        case 'dom':
+        case "dom":
             return Is.isDOM;
+        case "null":
+            return Is.isNull;
         default:
             throw new Error("Is.getCompareCallback: No compare typed found for: " + type);
     }
@@ -281,6 +284,21 @@ Is.getCompareCallbacks = function (type) {
     }
     return callbacks;
 };
+
+/**
+ * True if object is of type
+ * @param {string} type. Separated by |
+ * @returns {bool}
+ */
+Is.isOfType = function (obj, type) {
+    const callbacks = Is.getCompareCallbacks(type);
+    for (let i in callbacks) {
+        if (callbacks[i](obj)) {
+            return true;
+        }
+    }
+    return false;
+}
 
 /**
  * Check if the array only contains items if the given type.
