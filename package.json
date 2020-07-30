@@ -43,8 +43,6 @@
         "file-loader": "latest",
         "eslint": "latest",
         "babel-eslint": "latest",
-        "bootstrap": "latest",
-        "uglifyjs-webpack-plugin": "latest",
-        "terser-webpack-plugin": "latest"
+        "bootstrap": "latest"
     }
 }
