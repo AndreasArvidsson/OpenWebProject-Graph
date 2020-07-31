@@ -51,11 +51,11 @@ Interaction.prototype.updateOptions = function () {
         canvas.removeEventListener("mousemove", this._zoomCallbacks.mousemove);
         canvas.removeEventListener("mouseup", this._zoomCallbacks.mouseup);
         canvas.removeEventListener("dblclick", this._zoomCallbacks.dblclick);
-        canvas = this._graph._canvas.graph.getCanvas();
-        canvas.removeEventListener("mouseup", this._zoomCallbacks.mouseup);
+        canvas.removeEventListener("contextmenu", contextmenu);
         canvas = this._graph._canvas.background.getCanvas();
         canvas.removeEventListener("mouseup", this._zoomCallbacks.mouseup);
         canvas.removeEventListener("mouseout", this._zoomCallbacks.mouseout);
+        canvas.removeEventListener("contextmenu", contextmenu);
         this._zoomCallbacks = undefined;
     }
 
@@ -326,17 +326,17 @@ Interaction.prototype._addZoomEvents = function () {
 
     let canvas = graph._canvas.interaction.getCanvas();
     canvas.addEventListener("mousedown", mousedown);
-    canvas.addEventListener("contextmenu", contextmenu);
     canvas.addEventListener("mousemove", mousemove);
     canvas.addEventListener("mouseup", mouseup);
     canvas.addEventListener("dblclick", dblclick);
+    canvas.addEventListener("contextmenu", contextmenu);
 
     canvas = this._graph._canvas.background.getCanvas();
     canvas.addEventListener("mouseup", mouseup);
     canvas.addEventListener("mouseleave", mouseout);
     canvas.addEventListener("contextmenu", contextmenu);
 
-    return { mousedown, mousemove, mouseup, dblclick, mouseout };
+    return { mousedown, mousemove, mouseup, dblclick, mouseout, contextmenu };
 };
 
 /**
