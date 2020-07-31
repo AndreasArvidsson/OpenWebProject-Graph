@@ -366,7 +366,7 @@ Interaction.prototype._addSmoothingEvent = function () {
     this._smoothingInput.style.padding = "0 0 0 5px";
     this._smoothingInput.style.display = "none";
     this._smoothingInput.className = ((this._smoothingInput.className || "") + " a-graph-smoothing-input").trim();
-    this._graph._parent.append(this._smoothingInput);
+    this._graph._container.append(this._smoothingInput);
     const self = this;
     function callbackDone() {
         let value = parseInt(self._smoothingInput.value);

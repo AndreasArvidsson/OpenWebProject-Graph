@@ -8,18 +8,16 @@
  * Create a new canvas. Canvas is automatically scaled to be pixel perfect with screen.
  * @public
  * @constructor
- * @param {parent} parent - Parent div.
+ * @param {dom} container - Container dom.
  * @param {bool} dontScale - If True the scale transformation wont be set for this canvas. Scaling needs to be done manually.
  * @returns {Canvas}
  */
-function Canvas(parent, id, dontScale) {
-    this._parent = parent;
-
+function Canvas(container, id, dontScale) {
     this._canvas = document.createElement("canvas");
     if (id) {
         this._canvas.id = id;
     }
-    parent.append(this._canvas);
+    container.append(this._canvas);
     this._context = this._canvas.getContext("2d");
 
     this._dontScale = dontScale;
@@ -38,12 +36,12 @@ function Canvas(parent, id, dontScale) {
 /**
  * Set a new parent for the canvas. Leave empty to only remove current parent.
  * @public
- * @param {parent} div - Parent div.
+ * @param {dom} container - Container dom.
  */
-Canvas.prototype.setParent = function (parent) {
+Canvas.prototype.setParent = function (container) {
     this._canvas.remove();
-    if (parent) {
-        parent.append(this._canvas);
+    if (container) {
+        container.append(this._canvas);
     }
 };
 
