@@ -250,8 +250,9 @@ Interaction.prototype._addZoomEvents = function () {
     let lastHorizontal;
     const color = "rgba(130, 130, 130, 0.2)";
     let lastX, lastY;
-    function callbackMouseDown(e) {
-        if (!graph._axes.x.hasBounds() || !graph._axes.y.hasBounds()) {
+
+    function mousedown(e) {
+        if (e.button !== 0 || !graph._axes.x.hasBounds() || !graph._axes.y.hasBounds()) {
             return;
         }
         lastX = startX = e.offsetX;
@@ -260,7 +261,7 @@ Interaction.prototype._addZoomEvents = function () {
         lastHorizontal = undefined;
         graph._renderLegend();
     }
-    function callbackMouseMove(e) {
+    function mousemove(e) {
         if (self.mouseDown && (e.offsetX !== lastX || e.offsetX !== lastY)) {
             lastX = e.offsetX;
             lastY = e.offsetY;
@@ -281,8 +282,8 @@ Interaction.prototype._addZoomEvents = function () {
             }
         }
     }
-    function callbackMouseUp(e) {
-        if (self.mouseDown) {
+    function mouseup(e) {
+        if (e.button === 0 && self.mouseDown) {
             if (startX !== e.offsetX || startY !== e.offsetY) {
                 graph._canvas.interaction.clear();
                 //X-axis.
@@ -304,24 +305,16 @@ Interaction.prototype._addZoomEvents = function () {
             self.mouseDown = false;
         }
     }
-    function callbackDoubleClick(e) {
+    function dblclick(e) {
         //Prevents double click from selecting the div.
-        //Firefox, Chrome, etc.
-        if (e.preventDefault) {
-            e.preventDefault();
-        }
-        //IE
-        else {
-            e.returnValue = false;
-            e.cancelBubble = true;
-        }
+        preventDefault(e);
         if (graph._axes.x.hasZoom() || graph._axes.y.hasZoom()) {
             graph._axes.x.clearZoom();
             graph._axes.y.clearZoom();
             graph._plot();
         }
     }
-    function callbackMouseOut(e) {
+    function mouseout(e) {
         //Make sure we are in a drag event and that we are moving outside of the graph. Not inwards.
         if (!self.mouseDown || e.toElement === graph._canvas.graph.getCanvas() || e.toElement === graph._canvas.interaction.getCanvas()) {
             return;
@@ -329,18 +322,21 @@ Interaction.prototype._addZoomEvents = function () {
         graph._canvas.interaction.clear();
         self.mouseDown = false;
     }
+    const contextmenu = e => preventDefault(e);
 
     let canvas = graph._canvas.interaction.getCanvas();
-    canvas.addEventListener("mousedown", callbackMouseDown);
-    canvas.addEventListener("mousemove", callbackMouseMove);
-    canvas.addEventListener("mouseup", callbackMouseUp);
-    canvas.addEventListener("dblclick", callbackDoubleClick);
-    canvas = this._graph._canvas.graph.getCanvas();
-    canvas.addEventListener("mouseup", callbackMouseUp);
+    canvas.addEventListener("mousedown", mousedown);
+    canvas.addEventListener("contextmenu", contextmenu);
+    canvas.addEventListener("mousemove", mousemove);
+    canvas.addEventListener("mouseup", mouseup);
+    canvas.addEventListener("dblclick", dblclick);
+
     canvas = this._graph._canvas.background.getCanvas();
-    canvas.addEventListener("mouseup", callbackMouseUp);
-    canvas.addEventListener("mouseleave", callbackMouseOut);
-    return { mousedown: callbackMouseDown, mousemove: callbackMouseMove, mouseup: callbackMouseUp, dblclick: callbackDoubleClick, mouseout: callbackMouseOut };
+    canvas.addEventListener("mouseup", mouseup);
+    canvas.addEventListener("mouseleave", mouseout);
+    canvas.addEventListener("contextmenu", contextmenu);
+
+    return { mousedown, mousemove, mouseup, dblclick, mouseout };
 };
 
 /**
@@ -441,3 +437,16 @@ function clamp(min, number, max) {
         return number;
     }
 }
+
+function preventDefault(e) {
+    //Firefox, Chrome, etc.
+    if (e.preventDefault) {
+        e.preventDefault();
+    }
+    //IE
+    else {
+        e.returnValue = false;
+        e.cancelBubble = true;
+    }
+}
+
