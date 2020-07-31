@@ -25,17 +25,17 @@ import Is from "./Is";
  * Create new graph.
  * @public
  * @constructor
- * @param {dom} parent - Parent div.  DOM or ID string. Graph will fill this div.
+ * @param {dom|string} container - Element.  DOM or ID string. Graph will fill this element.
  * @param {OPTIONS_OBJECT} options - Options to customize the graph.
  * @returns {Graph}
  */
-function Graph(parent, options) {
+function Graph(container, options) {
     if (this instanceof Graph) {
-        this._init(parent, options);
+        this._init(container, options);
     }
     //The new keyword was omitted.
     else {
-        return new Graph(parent, options);
+        return new Graph(container, options);
     }
 }
 
@@ -49,7 +49,7 @@ Graph.createDummyData = Static.createDummyData;
 /**
  * Get options instance.
  * @public
- * @returns {Options}
+ * @returns {OPTIONS_OBJECT}
  */
 Graph.prototype.getOptions = function () {
     return this._options;
@@ -58,7 +58,7 @@ Graph.prototype.getOptions = function () {
 /**
  * Get default options.
  * @public
- * @returns {object}
+ * @returns {OPTIONS_OBJECT}
  */
 Graph.getDefaultOptions = Options.getDefault;
 
@@ -95,25 +95,26 @@ Graph.prototype.setOptions = function (options) {
 /**
  * Implementation of the constructor.
  * @private
- * @param {dom} parent - Parent div. DOM or ID string. Graph will fill this div.
- * @param {OPTIONS} options - Options to customize the graph.
  */
-Graph.prototype._init = function (parent, options) {
+Graph.prototype._init = function (container, options) {
+    if (typeof el === "string") {
+        container = document.getElementById(container);
+    }
     if (!parent) {
-        console.error("owp.graph ERROR: Parent dom is null");
+        console.error("owp.graph ERROR: Element dom is null");
         return;
     }
 
-    parent.style.position = "relative";
+    container.style.position = "relative";
 
-    this._parent = parent;
+    this._container = container;
     this._options = new Options();
 
     this._canvas = {
-        background: new Canvas(parent, "background"),
-        graph: new Canvas(parent, "graph", true),
-        highlight: new Canvas(parent, "highlight"),
-        interaction: new Canvas(parent, "interaction")
+        background: new Canvas(container, "background"),
+        graph: new Canvas(container, "graph", true),
+        highlight: new Canvas(container, "highlight"),
+        interaction: new Canvas(container, "interaction")
     };
 
     this._canvas.background.setZIndex(0);
@@ -167,10 +168,10 @@ Graph.prototype._initLegend = function () {
         else {
             //Set same parent for legend as rest of graph.
             if (this._canvas.legend) {
-                this._canvas.legend.setParent(this._parent);
+                this._canvas.legend.setParent(this._container);
             }
             else {
-                this._canvas.legend = new Canvas(this._parent);
+                this._canvas.legend = new Canvas(this._container);
                 this._canvas.legend.disableMouseInteraction();
             }
             if (location.toLowerCase() === "top") {
@@ -305,9 +306,8 @@ Graph.prototype._plot = function () {
 };
 
 /**
- * Manually start or stop spinner.
- * @public
- * @param {bool} doSpin - If true the spinner will start.
+ * Render the spinner
+ * @private
  */
 Graph.prototype._renderSpin = function () {
     //Can't update options so have to remove old spinner always.
@@ -322,7 +322,7 @@ Graph.prototype._renderSpin = function () {
             this._spinnerDiv = document.createElement("div");
             this._spinnerDiv.style.position = "absolute";
             this._spinnerDiv.style["z-index"] = 3;
-            this._parent.append(this._spinnerDiv);
+            this._container.append(this._spinnerDiv);
             this._updateSpinnerSize();
         }
         this._spinner = new Spinner(this._options.spinner);
@@ -637,8 +637,6 @@ Graph.prototype._renderGraph = function () {
 /**
  * Get offset for the given paramters.
  * @private
- * @param {array} array - List of string parameters to get offset for.
- * @returns {int} - Offset in number of pixels.
  */
 Graph.prototype._getOffset = function (array) {
     let offset = 0;
