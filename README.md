@@ -12,7 +12,7 @@ The project is based on four core ideas:
 * Code readability and maintainability: The code is easy to read and well commented. Any one wanting to fork this project should be able to do so.
 
 ## Installation
-`npm install owp.json-graph --save`
+`npm install owp.graph --save`
 
 ## Usage
 
