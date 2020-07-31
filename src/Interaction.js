@@ -51,11 +51,9 @@ Interaction.prototype.updateOptions = function () {
         canvas.removeEventListener("mousemove", this._zoomCallbacks.mousemove);
         canvas.removeEventListener("mouseup", this._zoomCallbacks.mouseup);
         canvas.removeEventListener("dblclick", this._zoomCallbacks.dblclick);
-        canvas.removeEventListener("contextmenu", contextmenu);
         canvas = this._graph._canvas.background.getCanvas();
         canvas.removeEventListener("mouseup", this._zoomCallbacks.mouseup);
         canvas.removeEventListener("mouseout", this._zoomCallbacks.mouseout);
-        canvas.removeEventListener("contextmenu", contextmenu);
         this._zoomCallbacks = undefined;
     }
 
@@ -252,14 +250,13 @@ Interaction.prototype._addZoomEvents = function () {
     let lastX, lastY;
 
     function mousedown(e) {
-        if (e.button !== 0 || !graph._axes.x.hasBounds() || !graph._axes.y.hasBounds()) {
-            return;
+        if (e.button === 0 && graph._axes.x.hasBounds() && graph._axes.y.hasBounds()) {
+            lastX = startX = e.offsetX;
+            lastY = startY = e.offsetY;
+            self.mouseDown = true;
+            lastHorizontal = undefined;
+            graph._renderLegend();
         }
-        lastX = startX = e.offsetX;
-        lastY = startY = e.offsetY;
-        self.mouseDown = true;
-        lastHorizontal = undefined;
-        graph._renderLegend();
     }
     function mousemove(e) {
         if (self.mouseDown && (e.offsetX !== lastX || e.offsetX !== lastY)) {
@@ -322,21 +319,18 @@ Interaction.prototype._addZoomEvents = function () {
         graph._canvas.interaction.clear();
         self.mouseDown = false;
     }
-    const contextmenu = e => preventDefault(e);
 
     let canvas = graph._canvas.interaction.getCanvas();
     canvas.addEventListener("mousedown", mousedown);
     canvas.addEventListener("mousemove", mousemove);
     canvas.addEventListener("mouseup", mouseup);
     canvas.addEventListener("dblclick", dblclick);
-    canvas.addEventListener("contextmenu", contextmenu);
 
     canvas = this._graph._canvas.background.getCanvas();
     canvas.addEventListener("mouseup", mouseup);
     canvas.addEventListener("mouseleave", mouseout);
-    canvas.addEventListener("contextmenu", contextmenu);
 
-    return { mousedown, mousemove, mouseup, dblclick, mouseout, contextmenu };
+    return { mousedown, mousemove, mouseup, dblclick, mouseout };
 };
 
 /**
