@@ -223,7 +223,7 @@ Graph.getDefaultOptions = Options.getDefault;
  * @public
  */
 Graph.prototype.setDefaultOptions = function () {
-    this.setOptions(Options.getDefault());
+    this._options.setDefault();
 };
 
 /**
@@ -235,6 +235,8 @@ Graph.prototype.setOptions = function (options) {
     this._options.set(options);
     this._hasCalculatedGraphSize = false;
     if (this._options.isOk()) {
+        this._axes.x.zoom(this._options.zoom.xMin, this._options.zoom.xMax);
+        this._axes.y.zoom(this._options.zoom.yMin, this._options.zoom.yMax);
         this._axes.x.calculateBounds();
         this._axes.y.calculateBounds();
         this._interaction.updateOptions();
@@ -257,30 +259,6 @@ Graph.prototype.setData = function (dataX, dataY) {
         options.graph.dataY = dataY;
     }
     this.setOptions(options);
-};
-
-/**
- * 
- * @param {number} x1 - Min X value.
- * @param {number} y1 - Min Y value.
- * @param {number} x2 - Max X-value.
- * @param {number} y2 - Max Y-value.
- * @returns {undefined}
- */
-Graph.prototype.zoom = function (x1, y1, x2, y2) {
-    this._axes.x.overrideBounds({ min: x1, max: x2 });
-    this._axes.y.overrideBounds({ min: y1, max: y2 });
-    this._plot();
-};
-
-/**
- * Reset zoom level to zero.
- * @returns {undefined}
- */
-Graph.prototype.resetZoom = function () {
-    this._axes.x.clearOverridenBounds();
-    this._axes.y.clearOverridenBounds();
-    this._plot();
 };
 
 /**
@@ -544,22 +522,22 @@ Graph.prototype._renderTitle = function () {
 Graph.prototype._renderHighlight = function () {
     this._canvas.highlight.clear();
     const h = this._options.highlight;
-    if (Is.isNull(h.x1) && Is.isNull(h.y1) && Is.isNull(h.x2) && Is.isNull(h.y2)) {
+    if (Is.isNull(h.xMin) && Is.isNull(h.xMax) && Is.isNull(h.yMin) && Is.isNull(h.yMax)) {
         return;
     }
     //Convert values to pixels.
-    const x1 = Is.isNull(h.x1)
-        ? 0
-        : this._axes.x.valueToPixel(h.x1);
-    const y1 = Is.isNull(h.y1)
-        ? 0
-        : this._axes.y.valueToPixel(h.y1);
-    const x2 = Is.isNull(h.x2)
-        ? this._canvas.graph.getContentWidth()
-        : this._axes.x.valueToPixel(h.x2);
-    const y2 = Is.isNull(h.y2)
-        ? this._canvas.graph.getContentHeight()
-        : this._axes.y.valueToPixel(h.y2);
+    const x1 = this._axes.x.valueToPixel(
+        Is.isNull(h.xMin) ? this._axes.x.getMin() : h.xMin
+    );
+    const x2 = this._axes.x.valueToPixel(
+        Is.isNull(h.xMax) ? this._axes.x.getMax() : h.xMax
+    );
+    const y1 = this._axes.y.valueToPixel(
+        Is.isNull(h.yMin) ? this._axes.y.getMin() : h.yMin
+    );
+    const y2 = this._axes.y.valueToPixel(
+        Is.isNull(h.yMax) ? this._axes.y.getMax() : h.yMax
+    );
     this._canvas.highlight.fillRectangle2(x1, y1, x2, y2, h.color);
 };
 

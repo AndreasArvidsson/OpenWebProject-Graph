@@ -72,30 +72,31 @@ function init() {
     options.axes.x.log = true;
     addGraph(options, false);
 
-    options = getOptions("Bounds set");
-    options.axes.x.bounds = {
-        min: 100,
-        max: 150
+    const bounds = {
+        xMin: 50,
+        xMax: 150,
+        yMin: -0.7,
+        yMax: 0.2
     };
-    options.axes.y.bounds = {
-        min: -0.5,
-        max: 0.5
-    };
-    addGraph(options, true);
-
-    options = getOptions("Zoom enabled");
-    tmp = addGraph(options, true);
-    tmp.graph.zoom(100, -0.5, 150, 0.5);
-    tmp.code.innerText = "graph.zoom(100, -10, 400, 10);";
 
     options = getOptions("Highlighting enabled");
-    options.highlight = {
-        x1: 50,
-        y1: -0.7,
-        x2: 150,
-        y2: 0.2
-    };
+    options.highlight = bounds;
     tmp = addGraph(options, true);
+
+    options = getOptions("Zoom enabled");
+    options.zoom = bounds;
+    tmp = addGraph(options, true);
+
+    options = getOptions("Bounds set");
+    options.axes.x.bounds = {
+        min: bounds.xMin,
+        max: bounds.xMax
+    };
+    options.axes.y.bounds = {
+        min: bounds.yMin,
+        max: bounds.yMax
+    };
+    addGraph(options, true);
 
     options = getOptions("Spinner enabled");
     tmp = addGraph(options, true);

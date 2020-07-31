@@ -71,8 +71,8 @@ Axis.prototype.isInverted = function () {
  */
 Axis.prototype.getMin = function () {
     //Always prioritize override bounds.
-    if (this._overrideBounds) {
-        return this._overrideBounds.min;
+    if (!Is.isNull(this._overrideMin)) {
+        return this._overrideMin;
     }
     return this._min;
 };
@@ -84,8 +84,8 @@ Axis.prototype.getMin = function () {
  */
 Axis.prototype.getMax = function () {
     //Always prioritize override bounds.
-    if (this._overrideBounds) {
-        return this._overrideBounds.max;
+    if (!Is.isNull(this._overrideMax)) {
+        return this._overrideMax;
     }
     return this._max;
 };
@@ -143,25 +143,28 @@ Axis.prototype.getTicks = function () {
  * Return true if this axis has overridden bounds.
  * @public
  */
-Axis.prototype.hasOverridenBounds = function () {
-    return this._overrideBounds !== undefined;
+Axis.prototype.hasZoom = function () {
+    return !Is.isNull(this._overrideMin) || !Is.isNull(this._overrideMax);
 };
 
 /**
  * Override bounds. Temporary override user given bounds. 
  * @public
  */
-Axis.prototype.overrideBounds = function (bounds) {
-    this._overrideBounds = bounds;
-    this.calculateTicks();
+Axis.prototype.zoom = function (min, max) {
+    this._overrideMin = min;
+    this._overrideMax = max;
+    if (!Is.isNull(this.getMin()) || !Is.isNull(this.getMax())) {
+        this.calculateTicks();
+    }
 };
 
 /**
  * Remove overridden bounds.
  * @public
  */
-Axis.prototype.clearOverridenBounds = function () {
-    this.overrideBounds();
+Axis.prototype.clearZoom = function () {
+    this.zoom();
 };
 
 /**

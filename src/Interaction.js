@@ -290,14 +290,14 @@ Interaction.prototype._addZoomEvents = function () {
                     const x = clamp(0, e.offsetX, graph._canvas.interaction.getContentWidth());
                     const min = graph._axes.x.pixelToValue(Math.min(startX, x));
                     const max = graph._axes.x.pixelToValue(Math.max(startX, x));
-                    graph._axes.x.overrideBounds({ min: min, max: max });
+                    graph._axes.x.zoom(min, max);
                 }
                 //Y-axis.
                 else {
                     const y = clamp(0, e.offsetY, graph._canvas.interaction.getContentHeight());
                     const min = graph._axes.y.pixelToValue(Math.max(startY, y));
                     const max = graph._axes.y.pixelToValue(Math.min(startY, y));
-                    graph._axes.y.overrideBounds({ min: min, max: max });
+                    graph._axes.y.zoom(min, max);
                 }
                 graph._plot();
             }
@@ -315,9 +315,9 @@ Interaction.prototype._addZoomEvents = function () {
             e.returnValue = false;
             e.cancelBubble = true;
         }
-        if (graph._axes.x.hasOverridenBounds() || graph._axes.y.hasOverridenBounds()) {
-            graph._axes.x.clearOverridenBounds();
-            graph._axes.y.clearOverridenBounds();
+        if (graph._axes.x.hasZoom() || graph._axes.y.hasZoom()) {
+            graph._axes.x.clearZoom();
+            graph._axes.y.clearZoom();
             graph._plot();
         }
     }

@@ -14,9 +14,7 @@ import Is from "./Is";
  * @returns {Options}
  */
 function Options(options) {
-    this._isOk = true;
-    this._createMembers();
-    this.set(Options.getDefault());
+    this.setDefault();
     if (options) {
         this.set(options);
     }
@@ -103,11 +101,17 @@ Options.getDefault = function () {
             newLine: false
         },
         highlight: {
-            x1: null,
-            y1: null,
-            x2: null,
-            y2: null,
+            xMin: null,
+            xMax: null,
+            yMin: null,
+            yMax: null,
             color: "rgba(0, 0, 255, 0.2)"
+        },
+        zoom: {
+            xMin: null,
+            xMax: null,
+            yMin: null,
+            yMax: null
         },
         graph: {
             dataX: [],
@@ -235,6 +239,15 @@ Options.prototype.set = function (options) {
     setMembers(this, options, "");
 
     this._evalOptions();
+};
+
+/**
+ * Sets all options to their default values.
+ * @public
+ */
+Options.prototype.setDefault = function () {
+    Object.assign(this, Options.getDefault());
+    this._isOk = true;
 };
 
 /**
@@ -479,20 +492,35 @@ Options.prototype._evalOptions = function () {
 
     set("highlight");
     if (evalType("object")) {
-        set("highlight.x1");
+        set("highlight.xMin");
         evalType("number|null");
 
-        set("highlight.y1");
+        set("highlight.xMax");
         evalType("number|null");
 
-        set("highlight.x2");
+        set("highlight.yMin");
         evalType("number|null");
 
-        set("highlight.y2");
+        set("highlight.yMax");
         evalType("number|null");
 
         set("highlight.color");
         evalType("color");
+    }
+
+    set("zoom");
+    if (evalType("object")) {
+        set("zoom.xMin");
+        evalType("number|null");
+
+        set("zoom.xMax");
+        evalType("number|null");
+
+        set("zoom.yMin");
+        evalType("number|null");
+
+        set("zoom.yMax");
+        evalType("number|null");
     }
 
     set("graph");
@@ -814,147 +842,6 @@ Options.prototype._evalOptions = function () {
 };
 
 /**
- * Create all the members that contains the user given settings.
- * @private
- */
-Options.prototype._createMembers = function () {
-    this.debug = null;
-    this.interaction = {
-        resize: null,
-        trackMouse: null,
-        zoom: null,
-        smoothing: null
-    };
-    this.title = {
-        show: null,
-        bold: null,
-        label: null,
-        size: null,
-        offsetX: null,
-        offsetY: null,
-        padding: null,
-        font: null,
-        color: null,
-        align: null
-    };
-    this.legend = {
-        location: null,
-        font: null,
-        size: null,
-        offsetX: null,
-        offsetY: null,
-        align: null,
-        newLine: null
-    };
-    this.highlight = {
-        x1: null,
-        y1: null,
-        x2: null,
-        y2: null,
-        color: null
-    };
-    this.graph = {
-        dataX: null,
-        dataY: null,
-        colors: null,
-        names: null,
-        lineWidth: null,
-        smoothing: null,
-        simplify: null,
-        fill: null,
-        compositeOperation: null
-    };
-    this.axes = {
-        tickMarkers: {
-            show: null,
-            length: null,
-            width: null,
-            offset: null,
-            color: null
-        },
-        tickLabels: {
-            show: null,
-            color: null,
-            font: null,
-            size: null,
-            width: null,
-            offset: null
-        },
-        labels: {
-            show: null,
-            color: null,
-            font: null,
-            size: null,
-            offset: null,
-            padding: null
-        },
-        x: {
-            show: null,
-            inverted: null,
-            log: null,
-            height: null,
-            label: null,
-            legendValueFormatter: null,
-            tickerValuePreFormatter: null,
-            tickerValuePostFormatter: null,
-            tickerLabelFormatter: null,
-            ticker: null,
-            grid: {
-                width: null,
-                color: null
-            },
-            bounds: {
-                min: null,
-                max: null
-            }
-        },
-        y: {
-            show: null,
-            inverted: null,
-            log: null,
-            width: null,
-            label: null,
-            legendValueFormatter: null,
-            tickerValuePreFormatter: null,
-            tickerValuePostFormatter: null,
-            tickerLabelFormatter: null,
-            ticker: null,
-            grid: {
-                width: null,
-                color: null
-            },
-            bounds: {
-                min: null,
-                max: null
-            }
-        }
-    };
-    this.border = {
-        style: null,
-        color: null,
-        width: null
-    };
-    this.spinner = {
-        show: null,
-        lines: null,
-        length: null,
-        width: null,
-        radius: null,
-        corners: null,
-        rotate: null,
-        direction: null,
-        color: null,
-        speed: null,
-        trail: null,
-        shadow: null,
-        hwaccel: null,
-        position: null,
-        top: null,
-        left: null
-    };
-};
-
-/**
  @typedef OPTIONS_OBJECT
  @type {object}
 
@@ -987,11 +874,17 @@ Options.prototype._createMembers = function () {
  @property {int} legend.newLine -  If true a new line is made between each data set.
 
  @property {object} highlight - Options regarding highlighting.
- @property {bool} highlight.x1 - X-axis low value. 
- @property {string} highlight.y1 - Y-axis low value.
- @property {int} highlight.x2 - X-axis high value.
- @property {int} highlight.y2 - Y-axis high value.
+ @property {bool} highlight.xMin - X-axis low value. 
+ @property {int} highlight.xMax - X-axis high value.
+ @property {string} highlight.yMin - Y-axis low value.
+ @property {int} highlight.yMax - Y-axis high value.
  @property {string} highlight.color - Color of the highlight.
+
+ @property {object} zoom - Options regarding default zoom.
+ @property {bool} zoom.xMIn - X-axis low value. 
+ @property {int} zoom.xMax - X-axis high value.
+ @property {string} zoom.yMin - Y-axis low value.
+ @property {int} zoom.yMax - Y-axis high value.
 
  @property {object} graph - Options regarding the graph curve.
  @property {array<array>} graph.dataX - List of data sets for the X-axis. Can contain typed arrays.

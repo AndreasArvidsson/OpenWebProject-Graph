@@ -30,6 +30,8 @@
     "bugs": {
         "url": "https://github.com/AndreasArvidsson/OpenWebProject-graph/issues"
     },
+    "dependencies": {
+    },
     "devDependencies": {
         "webpack": "latest",
         "webpack-cli": "latest",
