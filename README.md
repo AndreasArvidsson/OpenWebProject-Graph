@@ -22,23 +22,23 @@ import Graph from "owp.graph";
 const graph = Graph(
     document.getElementById("root"), 
     {
-        "title": {
-            "label": "Standard line plot with two data sets"
+        title: {
+            label: "Standard line plot with two data sets"
         },
-        "axes": {
-            "x": {
+        axes: {
+            x: {
                 "label": "Frequency (Hz)"
             },
-            "y": {
+            y: {
                 "label": "Amplitude (dB)"
             }
         },
-        "graph": {
-            names: ["Left", "Right"],
-            dataY: [
+        graph: {
+            names: ["x", "Left", "Right"],
+            dataX: [
                 [100, 200, 400]
             ],
-            "dataY": [
+            dataY: [
                 [1, 2, 3],
                 [1.5, 2.5, 3.5]
             ]
