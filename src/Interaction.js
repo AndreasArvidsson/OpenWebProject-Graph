@@ -155,6 +155,7 @@ Interaction.prototype._addResizeEvent = function () {
             timeOutResize = setTimeout(resizeEnd, 500);
         }
     }
+
     window.addEventListener("resize", callback);
     return callback;
 };
@@ -281,11 +282,15 @@ Interaction.prototype._addZoomEvents = function () {
     }
     function mouseup(e) {
         if (e.button === 0 && self.mouseDown) {
+            self.mouseDown = false;
             if (startX !== e.offsetX || startY !== e.offsetY) {
                 graph._canvas.interaction.clear();
                 //X-axis.
                 if (lastHorizontal) {
                     const x = clamp(0, e.offsetX, graph._canvas.interaction.getContentWidth());
+                    if (startX === x) {
+                        return;
+                    }
                     const min = graph._axes.x.pixelToValue(Math.min(startX, x));
                     const max = graph._axes.x.pixelToValue(Math.max(startX, x));
                     graph._axes.x.zoom(min, max);
@@ -293,13 +298,15 @@ Interaction.prototype._addZoomEvents = function () {
                 //Y-axis.
                 else {
                     const y = clamp(0, e.offsetY, graph._canvas.interaction.getContentHeight());
+                    if (startY === y) {
+                        return;
+                    }
                     const min = graph._axes.y.pixelToValue(Math.max(startY, y));
                     const max = graph._axes.y.pixelToValue(Math.min(startY, y));
                     graph._axes.y.zoom(min, max);
                 }
                 graph._plot();
             }
-            self.mouseDown = false;
         }
     }
     function dblclick(e) {
@@ -425,9 +432,11 @@ export default Interaction;
 function clamp(min, number, max) {
     if (number < min) {
         return min;
-    } else if (number > max) {
+    }
+    else if (number > max) {
         return max;
-    } else {
+    }
+    else {
         return number;
     }
 }
@@ -443,4 +452,3 @@ function preventDefault(e) {
         e.cancelBubble = true;
     }
 }
-

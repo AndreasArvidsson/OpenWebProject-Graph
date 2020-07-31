@@ -550,7 +550,6 @@ Axis.prototype._getDefaultTicks = function (isLog, minValue, maxValue, graphSize
     return ticks;
 };
 
-
 function defaultTickerLabelFormatter(value) {
     if (value < 0) {
         return '-' + defaultTickerLabelFormatter(-value);
@@ -608,6 +607,7 @@ function getDefaultLinTicks(minValue, maxValue, graphSize, labelSize) {
     const range = maxValue - minValue;
     //Get ticker value step.
     const step = getStepValue(false, range / maxNumLabels);
+
     //Calculate start pos.
     let start = minValue;
     //Make sure start is on a step position.
