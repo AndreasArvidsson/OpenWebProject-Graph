@@ -40,6 +40,59 @@ function Graph(parent, options) {
 }
 
 /**
+ * Get dummy dataY array.
+ * @public
+ * @returns {array}
+ */
+Graph.createDummyData = Static.createDummyData;
+
+/**
+ * Get options instance.
+ * @public
+ * @returns {Options}
+ */
+Graph.prototype.getOptions = function () {
+    return this._options;
+};
+
+/**
+ * Get default options.
+ * @public
+ * @returns {object}
+ */
+Graph.getDefaultOptions = Options.getDefault;
+
+/**
+ * Sets all options to their default values.
+ * @public
+ */
+Graph.prototype.setDefaultOptions = function () {
+    this._options.setDefault();
+};
+
+/**
+ * Set new options.
+ * @public
+ * @param {OPTIONS_OBJECT} options - Options to customize the graph.
+ */
+Graph.prototype.setOptions = function (options) {
+    this._options.set(options);
+    this._hasCalculatedGraphSize = false;
+    if (this._options.isOk()) {
+        this._axes.x.zoom(this._options.zoom.xMin, this._options.zoom.xMax);
+        this._axes.y.zoom(this._options.zoom.yMin, this._options.zoom.yMax);
+        this._axes.x.calculateBounds();
+        this._axes.y.calculateBounds();
+        this._interaction.updateOptions();
+        this._canvas.graph.setBorder(this._options.border.style, this._options.border.color, this._options.border.width);
+        this._initLegend();
+        this._plot();
+    }
+};
+
+/* ********** PRIVATE ********** */
+
+/**
  * Implementation of the constructor.
  * @private
  * @param {dom} parent - Parent div. DOM or ID string. Graph will fill this div.
@@ -196,99 +249,6 @@ Graph.prototype._renderLegend = function (values) {
 };
 
 /**
- * Get dummy dataY array.
- * @public
- * @returns {array}
- */
-Graph.createDummyData = Static.createDummyData;
-
-/**
- * Get options instance.
- * @public
- * @returns {Options}
- */
-Graph.prototype.getOptions = function () {
-    return this._options;
-};
-
-/**
- * Get default options.
- * @public
- * @returns {object}
- */
-Graph.getDefaultOptions = Options.getDefault;
-
-/**
- * Sets all options to their default values.
- * @public
- */
-Graph.prototype.setDefaultOptions = function () {
-    this._options.setDefault();
-};
-
-/**
- * Set new options.
- * @public
- * @param {OPTIONS_OBJECT} options - Options to customize the graph.
- */
-Graph.prototype.setOptions = function (options) {
-    this._options.set(options);
-    this._hasCalculatedGraphSize = false;
-    if (this._options.isOk()) {
-        this._axes.x.zoom(this._options.zoom.xMin, this._options.zoom.xMax);
-        this._axes.y.zoom(this._options.zoom.yMin, this._options.zoom.yMax);
-        this._axes.x.calculateBounds();
-        this._axes.y.calculateBounds();
-        this._interaction.updateOptions();
-        this._canvas.graph.setBorder(this._options.border.style, this._options.border.color, this._options.border.width);
-        this._initLegend();
-        this._plot();
-    }
-};
-
-/**
- * Set new data.
- * @public
- */
-Graph.prototype.setData = function (dataX, dataY) {
-    const options = { graph: {} };
-    if (dataX) {
-        options.graph.dataX = dataX;
-    }
-    if (dataY) {
-        options.graph.dataY = dataY;
-    }
-    this.setOptions(options);
-};
-
-/**
- * Manually start or stop spinner.
- * @public
- * @param {bool} doSpin - If true the spinner will start.
- */
-Graph.prototype.spin = function (doSpin) {
-    if (doSpin) {
-        //Spinner does not exist. Create it.
-        if (!this._spinner) {
-            this._spinnerDiv = document.createElement("div");
-            this._parent.append(this._spinnerDiv);
-            this._spinnerDiv.style.position = "absolute";
-            this._spinnerDiv.style["z-index"] = 3;
-            this._updateSpinnerSize();
-            this._spinner = new Spinner(this._options.spinner);
-        }
-        if (!this._spinner.isSpinning) {
-            this._spinner.spin(this._spinnerDiv);
-            this._spinner.isSpinning = true;
-        }
-    }
-    else if (this._spinner) {
-        this._spinner.stop();
-        this._spinner.isSpinning = false;
-    }
-};
-
-/**
  * Plots/draws the graph.
  * @private
  */
@@ -316,6 +276,7 @@ Graph.prototype._plot = function () {
     //Render non data related features.
     this._renderTitle();
     this._renderAxesLabels();
+    this._renderSpin();
 
     //Has bounds. Render bounds related features.
     if (this._axes.x.hasBounds() && this._axes.y.hasBounds()) {
@@ -342,6 +303,37 @@ Graph.prototype._plot = function () {
         console.timeEnd("owp.graph DEBUG: Plot time");
     }
 };
+
+/**
+ * Manually start or stop spinner.
+ * @public
+ * @param {bool} doSpin - If true the spinner will start.
+ */
+Graph.prototype._renderSpin = function () {
+    //Can't update options so have to remove old spinner always.
+    if (this._spinner) {
+        this._spinner.stop();
+        this._spinner = null;
+    }
+    //Show spinner
+    if (this._options.spinner.show) {
+        //Spinner div does not exist. Create it.
+        if (!this._spinnerDiv) {
+            this._spinnerDiv = document.createElement("div");
+            this._spinnerDiv.style.position = "absolute";
+            this._spinnerDiv.style["z-index"] = 3;
+            this._parent.append(this._spinnerDiv);
+            this._updateSpinnerSize();
+        }
+        this._spinner = new Spinner(this._options.spinner);
+        this._spinner.spin(this._spinnerDiv);
+    }
+    //Hide spinner. Remove old div.
+    else if (this._spinnerDiv) {
+        this._spinnerDiv.remove();
+        this._spinnerDiv = null;
+    }
+}
 
 /**
  * Updates the position and size of the spinner div based on the graph canvas.

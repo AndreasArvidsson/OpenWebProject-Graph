@@ -194,7 +194,7 @@ Options.getDefault = function () {
             width: "0 0 1px 1px"
         },
         spinner: {//Options regarding the spinner.
-            show: true, //Automatically show spinner when plotting data. Can always be activated manually.
+            show: false, //Automatically show spinner when plotting data. Can always be activated manually.
             lines: 13, //The number of lines to draw.
             length: 30, //The length of each line.
             width: 10, //The line thickness.

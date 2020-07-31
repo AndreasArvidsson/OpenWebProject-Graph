@@ -27,7 +27,7 @@ function getOptions(title) {
 }
 
 function init() {
-    let options, tmp;
+    let options;
 
     options = getOptions("Simple example");
     delete options.graph.dataY;
@@ -81,11 +81,11 @@ function init() {
 
     options = getOptions("Highlighting enabled");
     options.highlight = bounds;
-    tmp = addGraph(options, true);
+    addGraph(options, true);
 
     options = getOptions("Zoom enabled");
     options.zoom = bounds;
-    tmp = addGraph(options, true);
+    addGraph(options, true);
 
     options = getOptions("Bounds set");
     options.axes.x.bounds = {
@@ -99,9 +99,10 @@ function init() {
     addGraph(options, true);
 
     options = getOptions("Spinner enabled");
-    tmp = addGraph(options, true);
-    tmp.graph.spin(true);
-    tmp.code.innerText = "graph.spin(true);";
+    options.spinner = {
+        show: true
+    };
+    addGraph(options, true);
 }
 
 function addGraph(options, isFloat, legendId) {
@@ -116,7 +117,7 @@ function addGraph(options, isFloat, legendId) {
     div.className = "graph-divs";
     root.appendChild(div);
 
-    const graph = Graph(div, options);
+    Graph(div, options);
 
     const button = document.createElement("button");
     button.className = "btn btn-primary";
@@ -150,8 +151,6 @@ function addGraph(options, isFloat, legendId) {
             button.innerText = "Show code";
         }
     });
-
-    return { graph, code };
 }
 
 export default { init };

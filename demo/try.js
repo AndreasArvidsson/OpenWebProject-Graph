@@ -6,7 +6,7 @@ function init() {
     root.innerHTML =
         `<h2>Example with configurable options</h2>
     Here you can try out the different options. Just update the options object in the text field and click the "update graph" button to see the result.
-    <br>NOTE: If you remove an object/field from the options, the last set value will persist.;`
+    <br>NOTE: If you remove an object/field from the options, the last set value will persist.`;
 
     const dataY = Graph.createDummyData(500, "float");
     let options = {
@@ -22,7 +22,7 @@ function init() {
             }
         },
         graph: {
-            names: ["Left", "Right"]
+            names: ["x", "Left", "Right"]
         }
     };
 
