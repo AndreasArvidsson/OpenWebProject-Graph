@@ -1000,7 +1000,6 @@ Canvas.prototype.getContentY = function () {
 
 
 Canvas.prototype.getWidth = function () {
-  //return this._canvas.outerWidth(); TODO
   return this._canvas.offsetWidth;
 };
 /**
@@ -1011,7 +1010,6 @@ Canvas.prototype.getWidth = function () {
 
 
 Canvas.prototype.getHeight = function () {
-  //return this._canvas.outerHeight(); TODO
   return this._canvas.offsetHeight;
 };
 /**
@@ -1022,7 +1020,6 @@ Canvas.prototype.getHeight = function () {
 
 
 Canvas.prototype.getContentWidth = function () {
-  //return this._canvas.width(); TODO
   return this._canvas.clientWidth;
 };
 /**
@@ -1033,7 +1030,6 @@ Canvas.prototype.getContentWidth = function () {
 
 
 Canvas.prototype.getContentHeight = function () {
-  //return this._canvas.height(); TODO
   return this._canvas.clientHeight;
 };
 /**
@@ -2231,7 +2227,7 @@ Is.isAnyArray = function (obj) {
 
 
 Is.isColor = function (obj) {
-  var div = document.createElement("div");
+  const div = document.createElement("div");
   div.style.borderColor = "";
   div.style.borderColor = obj;
   return div.style.borderColor !== "";
@@ -2245,7 +2241,7 @@ Is.isColor = function (obj) {
 
 
 Is.isSize = function (obj) {
-  var div = document.createElement("div");
+  const div = document.createElement("div");
   div.style.width = "";
   div.style.width = obj;
   return div.style.width !== "";
@@ -2269,6 +2265,20 @@ Is.isAlignment = function (obj, noCenter) {
   }
 };
 /**
+ * Check of the given object is a font.
+ * @public
+ * @param {string} obj - Object to evaluate.
+ * @returns {bool}
+ */
+
+
+Is.isFont = function (obj) {
+  const div = document.createElement("div");
+  div.style["font-family"] = "";
+  div.style["font-family"] = obj;
+  return div.style["font-family"] !== "";
+};
+/**
  * Check of the given object is an composite operation.
  * @public
  * @param {string} obj - Object to evaluate.
@@ -2282,14 +2292,14 @@ Is.isCompositeOperation = function (obj) {
 };
 
 Is.isBorderWidth = function (obj) {
-  var div = document.createElement("div");
+  const div = document.createElement("div");
   div.style.borderWidth = "";
   div.style.borderWidth = obj;
   return div.style.borderWidth !== "";
 };
 
 Is.isBorderStyle = function (obj) {
-  var div = document.createElement("div");
+  const div = document.createElement("div");
   div.style.borderStyle = "";
   div.style.borderStyle = obj;
   return div.style.borderStyle !== "";
@@ -2311,9 +2321,10 @@ Is.getCompareCallback = function (type) {
       return Is.isInt;
 
     case "string":
-    case "font":
-      //TODO
       return Is.isString;
+
+    case "font":
+      return Is.isFont;
 
     case "bool":
       return Is.isBool;
@@ -2369,14 +2380,14 @@ Is.getCompareCallback = function (type) {
 
 
 Is.getCompareCallbacks = function (type) {
-  var callbacks = [];
-  var types = type.split("|");
+  const callbacks = [];
+  const types = type.split("|");
 
   if (!types.length) {
     throw new Error("Is.getCompareCallbacks: types is empty.");
   }
 
-  for (var i = 0; i < types.length; ++i) {
+  for (let i = 0; i < types.length; ++i) {
     callbacks.push(Is.getCompareCallback(types[i]));
   }
 
@@ -2410,9 +2421,9 @@ Is.isOfType = function (obj, type) {
 
 
 Is.isContent = function (array, type) {
-  var compareCallback = Is.getCompareCallback(type);
+  const compareCallback = Is.getCompareCallback(type);
 
-  for (var i = 0; i < array.length; ++i) {
+  for (let i = 0; i < array.length; ++i) {
     if (!compareCallback(array[i])) {
       return false;
     }
@@ -2422,7 +2433,7 @@ Is.isContent = function (array, type) {
 };
 
 Is.isInOptions = function (value, options) {
-  for (var i = 0; i < options.length; ++i) {
+  for (let i = 0; i < options.length; ++i) {
     if (options[i] === value) {
       return true;
     }
@@ -2828,16 +2839,16 @@ Options.prototype._getDataCallbackSmoothing = function (start, data) {
 
 
 Options.prototype._evalOptions = function () {
-  var optionsOk = true;
-  var obj, obj2, name, name2;
-  var options = this;
+  let optionsOk = true;
+  let obj, obj2, name, name2;
+  const options = this;
 
   function set(path) {
     name = path;
     obj = options;
-    var paths = path.split(".");
+    const paths = path.split(".");
 
-    for (var i = 0; i < paths.length; ++i) {
+    for (let i = 0; i < paths.length; ++i) {
       obj = obj[paths[i]];
     }
   }
@@ -2845,9 +2856,9 @@ Options.prototype._evalOptions = function () {
   function set2(path) {
     name2 = path;
     obj2 = options;
-    var paths = path.split(".");
+    const paths = path.split(".");
 
-    for (var i = 0; i < paths.length; ++i) {
+    for (let i = 0; i < paths.length; ++i) {
       obj2 = obj2[paths[i]];
     }
   }
@@ -3162,9 +3173,9 @@ Options.prototype._evalOptions = function () {
     } //axes x and y
 
 
-    var axes = ["axes.x", "axes.y"];
+    const axes = ["axes.x", "axes.y"];
 
-    for (var i = 0; i < axes.length; ++i) {
+    for (let i = 0; i < axes.length; ++i) {
       set(axes[i]);
 
       if (evalType("object")) {
@@ -3938,14 +3949,26 @@ Graph.prototype._renderLegend = function (values) {
     }
   }
 
+  const printX = () => {
+    printValue(this._options.graph.colors[0], this._options.getName(0), values ? this._axes.x.formatLegendValue(values[0]) : undefined);
+  };
+
+  const printY = i => {
+    printValue(this._options.graph.colors[i], this._options.getName(i), values ? this._axes.y.formatLegendValue(values[i]) : undefined);
+  };
+
   if (alignLeft || newLine) {
-    for (let i = 0; i <= this._options.graph.dataY.length; ++i) {
-      printValue(this._options.graph.colors[i], this._options.getName(i), values && values[i] !== undefined ? this._axes.y.formatLegendValue(values[i]) : undefined);
+    printX();
+
+    for (let i = 1; i <= this._options.graph.dataY.length; ++i) {
+      printY(i);
     }
   } else {
-    for (let i = this._options.graph.dataY.length; i >= 0; --i) {
-      printValue(this._options.graph.colors[i], this._options.getName(i), values && values[i] !== undefined ? this._axes.y.formatLegendValue(values[i]) : undefined);
+    for (let i = this._options.graph.dataY.length; i >= 1; --i) {
+      printY(i);
     }
+
+    printX();
   }
 };
 /**
