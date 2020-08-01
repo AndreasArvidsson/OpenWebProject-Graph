@@ -626,12 +626,13 @@ function getDefaultLinTicks(minValue, maxValue, graphSize, labelSize) {
 
     const ticks = [];
     for (; start <= maxValue; start += step) {
-        //Reach infinit loop.
-        if (start === secureFloat(start) + step) {
+        const value = secureFloat(start);
+        ticks.push({ value });
+        //Reached infinite loop.
+        if (start === value + step) {
             break;
         }
-        start = secureFloat(start);
-        ticks.push({ value: start });
+        start = value;
     }
     return ticks;
 }
