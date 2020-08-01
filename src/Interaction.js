@@ -179,7 +179,7 @@ Interaction.prototype._addMouseTrackingEvents = function () {
             const dataY = graph._options.graph.dataY[i];
             //Cant track unexisting values.
             if (!dataY.length) {
-                break;
+                continue;
             }
             const dataXCallback = graph._options.getDataCallback("x", i);
             const res = Static.binarySearch(dataXCallback, dataY.length, valueX);
@@ -196,7 +196,7 @@ Interaction.prototype._addMouseTrackingEvents = function () {
             //Binary search returned min and max at same value without a found.
             //There is no matching value. Just abort.
             else if (res.min === res.max) {
-                break;
+                continue;
             }
             //Calculate Y-value from min max coordinates.
             else {
@@ -216,9 +216,13 @@ Interaction.prototype._addMouseTrackingEvents = function () {
                 }
                 valueY = valueMin * weightMin + valueMax * weightMax;
             }
-            const pixelY = graph._axes.y.valueToPixel(valueY);
-            self._interactionData[i].moveTo(e.offsetX, pixelY);
+
             values[i + 1] = valueY;
+            const pixelY = graph._axes.y.valueToPixel(valueY);
+
+            if (isFinite(pixelY)) {
+                self._interactionData[i].moveTo(e.offsetX, pixelY);
+            }
         }
         graph._renderLegend(values);
     }
