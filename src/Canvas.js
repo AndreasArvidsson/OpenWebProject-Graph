@@ -109,7 +109,6 @@ Canvas.prototype.getContentY = function () {
  * @returns {int} - Width in pixels.
  */
 Canvas.prototype.getWidth = function () {
-    //return this._canvas.outerWidth(); TODO
     return this._canvas.offsetWidth;
 };
 
@@ -119,7 +118,6 @@ Canvas.prototype.getWidth = function () {
  * @returns {int} - Height in pixels.
  */
 Canvas.prototype.getHeight = function () {
-    //return this._canvas.outerHeight(); TODO
     return this._canvas.offsetHeight;
 };
 
@@ -129,7 +127,6 @@ Canvas.prototype.getHeight = function () {
  * @returns {int} - Width in pixels.
  */
 Canvas.prototype.getContentWidth = function () {
-    //return this._canvas.width(); TODO
     return this._canvas.clientWidth;
 };
 
@@ -139,7 +136,6 @@ Canvas.prototype.getContentWidth = function () {
  * @returns {int} - Height in pixels.
  */
 Canvas.prototype.getContentHeight = function () {
-    //return this._canvas.height(); TODO
     return this._canvas.clientHeight;
 };
 
