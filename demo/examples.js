@@ -103,6 +103,17 @@ function init() {
         show: true
     };
     addGraph(options, true);
+
+    options = getOptions("Custom formatters enabled");
+    options.axes.x.legendValueFormatter = value => value + "s";
+    options.axes.x.tickerValuePreFormatter = value => value * 2;
+    options.axes.x.tickerValuePostFormatter = value => value * 2;
+    options.axes.x.tickerLabelFormatter = value => value + "s";
+    options.axes.y.legendValueFormatter = value => value + "dB";
+    options.axes.y.tickerValuePreFormatter = value => value * 2;
+    options.axes.y.tickerValuePostFormatter = value => value / 2;
+    options.axes.y.tickerLabelFormatter = value => value + "dB";
+    addGraph(options, true);
 }
 
 function addGraph(options, isFloat, legendId) {
