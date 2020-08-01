@@ -618,10 +618,16 @@ function getDefaultLinTicks(minValue, maxValue, graphSize, labelSize) {
     if (diff < 0) {
         start -= diff;
     }
+
+    //Start and end value is the same. Just return the one value.
+    if (secureFloat(start) === secureFloat(maxValue)) {
+        return [{ value: secureFloat(start) }];
+    }
+
     const ticks = [];
-    for (; start <= maxValue; start += step) {
-        start = secureFloat(start);
-        ticks.push({ value: start });
+    while (start <= maxValue) {
+        ticks.push({ value: secureFloat(start) });
+        start += step;
     }
     return ticks;
 }
@@ -647,8 +653,7 @@ function getDefaultLogTicks(minValue, maxValue) {
             if (value > maxValue) {
                 return ticks;
             }
-            value = secureFloat(value);
-            ticks.push({ value: value });
+            ticks.push({ value: secureFloat(value) });
         }
         step *= 10;
     }
