@@ -184,8 +184,8 @@ Axis.prototype.isInverted = function () {
 
 Axis.prototype.getMin = function () {
   //Always prioritize override bounds.
-  if (this._overrideBounds) {
-    return this._overrideBounds.min;
+  if (!_Is__WEBPACK_IMPORTED_MODULE_1__["default"].isNull(this._overrideMin)) {
+    return this._overrideMin;
   }
 
   return this._min;
@@ -199,8 +199,8 @@ Axis.prototype.getMin = function () {
 
 Axis.prototype.getMax = function () {
   //Always prioritize override bounds.
-  if (this._overrideBounds) {
-    return this._overrideBounds.max;
+  if (!_Is__WEBPACK_IMPORTED_MODULE_1__["default"].isNull(this._overrideMax)) {
+    return this._overrideMax;
   }
 
   return this._max;
@@ -267,8 +267,8 @@ Axis.prototype.getTicks = function () {
  */
 
 
-Axis.prototype.hasOverridenBounds = function () {
-  return this._overrideBounds !== undefined;
+Axis.prototype.hasZoom = function () {
+  return !_Is__WEBPACK_IMPORTED_MODULE_1__["default"].isNull(this._overrideMin) || !_Is__WEBPACK_IMPORTED_MODULE_1__["default"].isNull(this._overrideMax);
 };
 /**
  * Override bounds. Temporary override user given bounds. 
@@ -276,9 +276,13 @@ Axis.prototype.hasOverridenBounds = function () {
  */
 
 
-Axis.prototype.overrideBounds = function (bounds) {
-  this._overrideBounds = bounds;
-  this.calculateTicks();
+Axis.prototype.zoom = function (min, max) {
+  this._overrideMin = min;
+  this._overrideMax = max;
+
+  if (!_Is__WEBPACK_IMPORTED_MODULE_1__["default"].isNull(this.getMin()) || !_Is__WEBPACK_IMPORTED_MODULE_1__["default"].isNull(this.getMax())) {
+    this.calculateTicks();
+  }
 };
 /**
  * Remove overridden bounds.
@@ -286,8 +290,8 @@ Axis.prototype.overrideBounds = function (bounds) {
  */
 
 
-Axis.prototype.clearOverridenBounds = function () {
-  this.overrideBounds();
+Axis.prototype.clearZoom = function () {
+  this.zoom();
 };
 /**
  * Calculates bounds. Uses user given option bounds first and calculates mising from data set.
@@ -791,15 +795,28 @@ function getDefaultLinTicks(minValue, maxValue, graphSize, labelSize) {
 
   if (diff < 0) {
     start -= diff;
+  } //Start and end value is the same. Just return the one value.
+
+
+  if (secureFloat(start) === secureFloat(maxValue)) {
+    return [{
+      value: secureFloat(start)
+    }];
   }
 
   const ticks = [];
 
   for (; start <= maxValue; start += step) {
-    start = secureFloat(start);
+    const value = secureFloat(start);
     ticks.push({
-      value: start
-    });
+      value
+    }); //Reached infinite loop.
+
+    if (start === value + step) {
+      break;
+    }
+
+    start = value;
   }
 
   return ticks;
@@ -830,9 +847,8 @@ function getDefaultLogTicks(minValue, maxValue) {
         return ticks;
       }
 
-      value = secureFloat(value);
       ticks.push({
-        value: value
+        value: secureFloat(value)
       });
     }
 
@@ -875,19 +891,18 @@ __webpack_require__.r(__webpack_exports__);
  * Create a new canvas. Canvas is automatically scaled to be pixel perfect with screen.
  * @public
  * @constructor
- * @param {parent} parent - Parent div.
+ * @param {dom} container - Container dom.
  * @param {bool} dontScale - If True the scale transformation wont be set for this canvas. Scaling needs to be done manually.
  * @returns {Canvas}
  */
-function Canvas(parent, id, dontScale) {
-  this._parent = parent;
+function Canvas(container, id, dontScale) {
   this._canvas = document.createElement("canvas");
 
   if (id) {
     this._canvas.id = id;
   }
 
-  parent.append(this._canvas);
+  container.append(this._canvas);
   this._context = this._canvas.getContext("2d");
   this._dontScale = dontScale;
   this._canvas.style.position = "absolute";
@@ -902,15 +917,15 @@ function Canvas(parent, id, dontScale) {
 /**
  * Set a new parent for the canvas. Leave empty to only remove current parent.
  * @public
- * @param {parent} div - Parent div.
+ * @param {dom} container - Container dom.
  */
 
 
-Canvas.prototype.setParent = function (parent) {
+Canvas.prototype.setParent = function (container) {
   this._canvas.remove();
 
-  if (parent) {
-    parent.append(this._canvas);
+  if (container) {
+    container.append(this._canvas);
   }
 };
 
@@ -1587,8 +1602,6 @@ Interaction.prototype.updateOptions = function () {
     canvas.removeEventListener("mousemove", this._zoomCallbacks.mousemove);
     canvas.removeEventListener("mouseup", this._zoomCallbacks.mouseup);
     canvas.removeEventListener("dblclick", this._zoomCallbacks.dblclick);
-    canvas = this._graph._canvas.graph.getCanvas();
-    canvas.removeEventListener("mouseup", this._zoomCallbacks.mouseup);
     canvas = this._graph._canvas.background.getCanvas();
     canvas.removeEventListener("mouseup", this._zoomCallbacks.mouseup);
     canvas.removeEventListener("mouseout", this._zoomCallbacks.mouseout);
@@ -1743,7 +1756,7 @@ Interaction.prototype._addMouseTrackingEvents = function () {
       const dataY = graph._options.graph.dataY[i]; //Cant track unexisting values.
 
       if (!dataY.length) {
-        break;
+        continue;
       }
 
       const dataXCallback = graph._options.getDataCallback("x", i);
@@ -1760,7 +1773,7 @@ Interaction.prototype._addMouseTrackingEvents = function () {
       } //Binary search returned min and max at same value without a found.
       //There is no matching value. Just abort.
       else if (res.min === res.max) {
-          break;
+          continue;
         } //Calculate Y-value from min max coordinates.
         else {
             const valueXMin = dataXCallback(res.min);
@@ -1781,11 +1794,13 @@ Interaction.prototype._addMouseTrackingEvents = function () {
             valueY = valueMin * weightMin + valueMax * weightMax;
           }
 
+      values[i + 1] = valueY;
+
       const pixelY = graph._axes.y.valueToPixel(valueY);
 
-      self._interactionData[i].moveTo(e.offsetX, pixelY);
-
-      values[i + 1] = valueY;
+      if (isFinite(pixelY)) {
+        self._interactionData[i].moveTo(e.offsetX, pixelY);
+      }
     }
 
     graph._renderLegend(values);
@@ -1826,20 +1841,18 @@ Interaction.prototype._addZoomEvents = function () {
   const color = "rgba(130, 130, 130, 0.2)";
   let lastX, lastY;
 
-  function callbackMouseDown(e) {
-    if (!graph._axes.x.hasBounds() || !graph._axes.y.hasBounds()) {
-      return;
+  function mousedown(e) {
+    if (e.button === 0 && graph._axes.x.hasBounds() && graph._axes.y.hasBounds()) {
+      lastX = startX = e.offsetX;
+      lastY = startY = e.offsetY;
+      self.mouseDown = true;
+      lastHorizontal = undefined;
+
+      graph._renderLegend();
     }
-
-    lastX = startX = e.offsetX;
-    lastY = startY = e.offsetY;
-    self.mouseDown = true;
-    lastHorizontal = undefined;
-
-    graph._renderLegend();
   }
 
-  function callbackMouseMove(e) {
+  function mousemove(e) {
     if (self.mouseDown && (e.offsetX !== lastX || e.offsetX !== lastY)) {
       lastX = e.offsetX;
       lastY = e.offsetY;
@@ -1863,8 +1876,10 @@ Interaction.prototype._addZoomEvents = function () {
     }
   }
 
-  function callbackMouseUp(e) {
-    if (self.mouseDown) {
+  function mouseup(e) {
+    if (e.button === 0 && self.mouseDown) {
+      self.mouseDown = false;
+
       if (startX !== e.offsetX || startY !== e.offsetY) {
         graph._canvas.interaction.clear(); //X-axis.
 
@@ -1872,56 +1887,49 @@ Interaction.prototype._addZoomEvents = function () {
         if (lastHorizontal) {
           const x = clamp(0, e.offsetX, graph._canvas.interaction.getContentWidth());
 
+          if (startX === x) {
+            return;
+          }
+
           const min = graph._axes.x.pixelToValue(Math.min(startX, x));
 
           const max = graph._axes.x.pixelToValue(Math.max(startX, x));
 
-          graph._axes.x.overrideBounds({
-            min: min,
-            max: max
-          });
+          graph._axes.x.zoom(min, max);
         } //Y-axis.
         else {
             const y = clamp(0, e.offsetY, graph._canvas.interaction.getContentHeight());
+
+            if (startY === y) {
+              return;
+            }
 
             const min = graph._axes.y.pixelToValue(Math.max(startY, y));
 
             const max = graph._axes.y.pixelToValue(Math.min(startY, y));
 
-            graph._axes.y.overrideBounds({
-              min: min,
-              max: max
-            });
+            graph._axes.y.zoom(min, max);
           }
 
         graph._plot();
       }
-
-      self.mouseDown = false;
     }
   }
 
-  function callbackDoubleClick(e) {
+  function dblclick(e) {
     //Prevents double click from selecting the div.
-    //Firefox, Chrome, etc.
-    if (e.preventDefault) {
-      e.preventDefault();
-    } //IE
-    else {
-        e.returnValue = false;
-        e.cancelBubble = true;
-      }
+    preventDefault(e);
 
-    if (graph._axes.x.hasOverridenBounds() || graph._axes.y.hasOverridenBounds()) {
-      graph._axes.x.clearOverridenBounds();
+    if (graph._axes.x.hasZoom() || graph._axes.y.hasZoom()) {
+      graph._axes.x.clearZoom();
 
-      graph._axes.y.clearOverridenBounds();
+      graph._axes.y.clearZoom();
 
       graph._plot();
     }
   }
 
-  function callbackMouseOut(e) {
+  function mouseout(e) {
     //Make sure we are in a drag event and that we are moving outside of the graph. Not inwards.
     if (!self.mouseDown || e.toElement === graph._canvas.graph.getCanvas() || e.toElement === graph._canvas.interaction.getCanvas()) {
       return;
@@ -1934,21 +1942,19 @@ Interaction.prototype._addZoomEvents = function () {
 
   let canvas = graph._canvas.interaction.getCanvas();
 
-  canvas.addEventListener("mousedown", callbackMouseDown);
-  canvas.addEventListener("mousemove", callbackMouseMove);
-  canvas.addEventListener("mouseup", callbackMouseUp);
-  canvas.addEventListener("dblclick", callbackDoubleClick);
-  canvas = this._graph._canvas.graph.getCanvas();
-  canvas.addEventListener("mouseup", callbackMouseUp);
+  canvas.addEventListener("mousedown", mousedown);
+  canvas.addEventListener("mousemove", mousemove);
+  canvas.addEventListener("mouseup", mouseup);
+  canvas.addEventListener("dblclick", dblclick);
   canvas = this._graph._canvas.background.getCanvas();
-  canvas.addEventListener("mouseup", callbackMouseUp);
-  canvas.addEventListener("mouseleave", callbackMouseOut);
+  canvas.addEventListener("mouseup", mouseup);
+  canvas.addEventListener("mouseleave", mouseout);
   return {
-    mousedown: callbackMouseDown,
-    mousemove: callbackMouseMove,
-    mouseup: callbackMouseUp,
-    dblclick: callbackDoubleClick,
-    mouseout: callbackMouseOut
+    mousedown,
+    mousemove,
+    mouseup,
+    dblclick,
+    mouseout
   };
 };
 /**
@@ -1977,7 +1983,7 @@ Interaction.prototype._addSmoothingEvent = function () {
   this._smoothingInput.style.display = "none";
   this._smoothingInput.className = ((this._smoothingInput.className || "") + " a-graph-smoothing-input").trim();
 
-  this._graph._parent.append(this._smoothingInput);
+  this._graph._container.append(this._smoothingInput);
 
   const self = this;
 
@@ -2063,6 +2069,17 @@ function clamp(min, number, max) {
   }
 }
 
+function preventDefault(e) {
+  //Firefox, Chrome, etc.
+  if (e.preventDefault) {
+    e.preventDefault();
+  } //IE
+  else {
+      e.returnValue = false;
+      e.cancelBubble = true;
+    }
+}
+
 /***/ }),
 
 /***/ "./src/Is.js":
@@ -2104,7 +2121,7 @@ Is.isNull = function (obj) {
 
 
 Is.isObject = function (obj) {
-  return obj !== null && typeof obj === 'object' && !Is.isArray(obj);
+  return obj !== null && typeof obj === "object" && !Is.isArray(obj);
 };
 /**
  * Check of the given object is a function.
@@ -2294,6 +2311,8 @@ Is.getCompareCallback = function (type) {
       return Is.isInt;
 
     case "string":
+    case "font":
+      //TODO
       return Is.isString;
 
     case "bool":
@@ -2320,20 +2339,23 @@ Is.getCompareCallback = function (type) {
     case "size":
       return Is.isSize;
 
-    case 'alignment':
+    case "alignment":
       return Is.isAlignment;
 
-    case 'compositeOperation':
+    case "compositeOperation":
       return Is.isCompositeOperation;
 
-    case 'borderStyle':
+    case "borderStyle":
       return Is.isBorderStyle;
 
-    case 'borderWidth':
+    case "borderWidth":
       return Is.isBorderWidth;
 
-    case 'dom':
+    case "dom":
       return Is.isDOM;
+
+    case "null":
+      return Is.isNull;
 
     default:
       throw new Error("Is.getCompareCallback: No compare typed found for: " + type);
@@ -2359,6 +2381,24 @@ Is.getCompareCallbacks = function (type) {
   }
 
   return callbacks;
+};
+/**
+ * True if object is of type
+ * @param {string} type. Separated by |
+ * @returns {bool}
+ */
+
+
+Is.isOfType = function (obj, type) {
+  const callbacks = Is.getCompareCallbacks(type);
+
+  for (let i in callbacks) {
+    if (callbacks[i](obj)) {
+      return true;
+    }
+  }
+
+  return false;
 };
 /**
  * Check if the array only contains items if the given type.
@@ -2422,11 +2462,7 @@ __webpack_require__.r(__webpack_exports__);
  */
 
 function Options(options) {
-  this._isOk = true;
-
-  this._createMembers();
-
-  this.set(Options.getDefault());
+  this.setDefault();
 
   if (options) {
     this.set(options);
@@ -2516,6 +2552,19 @@ Options.getDefault = function () {
       align: "right",
       newLine: false
     },
+    highlight: {
+      xMin: null,
+      xMax: null,
+      yMin: null,
+      yMax: null,
+      color: "rgba(0, 0, 255, 0.2)"
+    },
+    zoom: {
+      xMin: null,
+      xMax: null,
+      yMin: null,
+      yMax: null
+    },
     graph: {
       dataX: [],
       dataY: [],
@@ -2598,7 +2647,7 @@ Options.getDefault = function () {
     },
     spinner: {
       //Options regarding the spinner.
-      show: true,
+      show: false,
       //Automatically show spinner when plotting data. Can always be activated manually.
       lines: 13,
       //The number of lines to draw.
@@ -2644,7 +2693,6 @@ Options.prototype.set = function (options) {
   function setMembers(oldObj, newObj, path) {
     for (let i in newObj) {
       if (!Array.isArray(oldObj) && !Object.prototype.hasOwnProperty.call(oldObj, i)) {
-        //            if (!Array.isArray(oldObj) && !oldObj.hasOwnProperty(i)) { TODO
         console.warn("owp.graph WARNING: Can't set unexisting option: " + path + (path.length ? "." + i : i));
         continue;
       } //Member is a new object. Call function recursivly.
@@ -2662,6 +2710,16 @@ Options.prototype.set = function (options) {
   setMembers(this, options, "");
 
   this._evalOptions();
+};
+/**
+ * Sets all options to their default values.
+ * @public
+ */
+
+
+Options.prototype.setDefault = function () {
+  Object.assign(this, Options.getDefault());
+  this._isOk = true;
 };
 /**
  * Callback function for getting data value for a given index.
@@ -2799,149 +2857,18 @@ Options.prototype._evalOptions = function () {
     optionsOk = false;
   }
 
-  function evalObject() {
-    var res = _Is__WEBPACK_IMPORTED_MODULE_1__["default"].isObject(obj);
+  function evalType(type) {
+    const res = _Is__WEBPACK_IMPORTED_MODULE_1__["default"].isOfType(obj, type);
 
     if (!res) {
-      error("\"" + obj + "\" is not an object.");
-    }
-
-    return res;
-  }
-
-  function evalBool() {
-    var res = _Is__WEBPACK_IMPORTED_MODULE_1__["default"].isBool(obj);
-
-    if (!res) {
-      error("\"" + obj + "\" is not a bool.");
-    }
-
-    return res;
-  }
-
-  function evalNumber() {
-    var res = _Is__WEBPACK_IMPORTED_MODULE_1__["default"].isNumber(obj);
-
-    if (!res) {
-      error("\"" + obj + "\" is not a number.");
-    }
-
-    return res;
-  }
-
-  function evalInt() {
-    var res = _Is__WEBPACK_IMPORTED_MODULE_1__["default"].isInt(obj);
-
-    if (!res) {
-      error("\"" + obj + "\" is not an integer.");
-    }
-
-    return res;
-  }
-
-  function evalString() {
-    var res = _Is__WEBPACK_IMPORTED_MODULE_1__["default"].isString(obj);
-
-    if (!res) {
-      error("\"" + obj + "\" is not a string.");
-    }
-
-    return res;
-  }
-
-  function evalArray() {
-    var res = _Is__WEBPACK_IMPORTED_MODULE_1__["default"].isArray(obj);
-    res = true;
-
-    if (!res) {
-      error("\"" + obj + "\" is not an array.");
-    }
-
-    return res;
-  }
-
-  function evalFunction() {
-    var res = _Is__WEBPACK_IMPORTED_MODULE_1__["default"].isFunction(obj);
-
-    if (!res) {
-      error("\"" + obj + "\" is not a function.");
-    }
-
-    return res;
-  }
-
-  function evalAlign(noCenter) {
-    var res = _Is__WEBPACK_IMPORTED_MODULE_1__["default"].isAlignment(obj, noCenter);
-
-    if (!res) {
-      error("\"" + obj + "\" is not an valid alignment.");
-    }
-
-    return res;
-  }
-
-  function evalColor() {
-    var res = _Is__WEBPACK_IMPORTED_MODULE_1__["default"].isColor(obj);
-
-    if (!res) {
-      error("\"" + obj + "\" is not a valid color.");
-    }
-
-    return res;
-  }
-
-  function evalFont() {
-    var res = _Is__WEBPACK_IMPORTED_MODULE_1__["default"].isString(obj);
-
-    if (!res) {
-      error("\"" + obj + "\" is not a valid font.");
-    }
-
-    return res;
-  }
-
-  function evalSize() {
-    var res = _Is__WEBPACK_IMPORTED_MODULE_1__["default"].isSize(obj);
-
-    if (!res) {
-      error("\"" + obj + "\" is not a valid size.");
-    }
-
-    return res;
-  }
-
-  function evalBorderStyle() {
-    var res = _Is__WEBPACK_IMPORTED_MODULE_1__["default"].isBorderStyle(obj);
-
-    if (!res) {
-      error("\"" + obj + "\" is not a valid border style.");
-    }
-
-    return res;
-  }
-
-  function evalBorderWidth() {
-    var res = _Is__WEBPACK_IMPORTED_MODULE_1__["default"].isBorderWidth(obj);
-
-    if (!res) {
-      error("\"" + obj + "\" is not a valid border width.");
-    }
-
-    return res;
-  }
-
-  function evalCompositeOperation() {
-    var res = _Is__WEBPACK_IMPORTED_MODULE_1__["default"].isCompositeOperation(obj);
-
-    if (!res) {
-      error("\"" + obj + "\" is not a composite operation.");
+      error("\"" + obj + "\" is not of type: " + type);
     }
 
     return res;
   }
 
   function evalArrayContains(type) {
-    var res = _Is__WEBPACK_IMPORTED_MODULE_1__["default"].isContent(obj, type);
+    const res = _Is__WEBPACK_IMPORTED_MODULE_1__["default"].isContent(obj, type);
 
     if (!res) {
       error("\"[" + obj + "]\" contains object type other than: " + type + ".");
@@ -2950,8 +2877,18 @@ Options.prototype._evalOptions = function () {
     return res;
   }
 
+  function evalAlign(noCenter) {
+    const res = _Is__WEBPACK_IMPORTED_MODULE_1__["default"].isAlignment(obj, noCenter);
+
+    if (!res) {
+      error("\"" + obj + "\" is not an valid alignment.");
+    }
+
+    return res;
+  }
+
   function evalCond(cond) {
-    var res = eval(cond);
+    const res = eval(cond);
 
     if (!res) {
       cond = cond.replaceAll("obj2", name2).trim();
@@ -2969,81 +2906,109 @@ Options.prototype._evalOptions = function () {
   }
 
   set("debug");
-  evalBool();
+  evalType("bool");
   set("interaction");
 
-  if (evalObject()) {
+  if (evalType("object")) {
     set("interaction.resize");
-    evalBool();
+    evalType("bool");
     set("interaction.trackMouse");
-    evalBool();
+    evalType("bool");
     set("interaction.zoom");
-    evalBool();
+    evalType("bool");
     set("interaction.smoothing");
-    evalBool();
+    evalType("bool");
   }
 
   set("title");
 
-  if (evalObject()) {
+  if (evalType("object")) {
     set("title.bold");
-    evalBool();
+    evalType("bool");
     set("title.label");
-    evalString();
+    evalType("string");
     set("title.size");
-    evalInt();
+    evalType("int");
     evalCond("obj > 0");
     set("title.offsetX");
-    evalInt();
+    evalType("int");
     set("title.offsetY");
-    evalInt();
+    evalType("int");
     set("title.padding");
-    evalInt();
+    evalType("int");
     set("title.font");
-    evalFont();
+    evalType("font");
     set("title.color");
-    evalColor();
+    evalType("color");
     set("title.align");
     evalAlign();
   }
 
   set("legend");
 
-  if (evalObject()) {
+  if (evalType("object")) {
     set("legend.location");
-    evalString();
+    evalType("string");
     set("legend.font");
-    evalFont();
+    evalType("font");
     set("legend.size");
 
-    if (evalInt()) {
+    if (evalType("int")) {
       evalCond("obj > 0");
     }
 
     set("legend.offsetX");
 
-    if (evalInt()) {
+    if (evalType("int")) {
       evalCond("obj >= 0");
     }
 
     set("legend.offsetY");
 
-    if (evalInt()) {
+    if (evalType("int")) {
       evalCond("obj >= 0");
     }
 
     set("legend.align");
     evalAlign(true);
     set("legend.newLine");
-    evalBool();
+    evalType("bool");
+  }
+
+  set("highlight");
+
+  if (evalType("object")) {
+    set("highlight.xMin");
+    evalType("number|null");
+    set("highlight.xMax");
+    evalType("number|null");
+    set("highlight.yMin");
+    evalType("number|null");
+    set("highlight.yMax");
+    evalType("number|null");
+    set("highlight.color");
+    evalType("color");
+  }
+
+  set("zoom");
+
+  if (evalType("object")) {
+    set("zoom.xMin");
+    evalType("number|null");
+    set("zoom.xMax");
+    evalType("number|null");
+    set("zoom.yMin");
+    evalType("number|null");
+    set("zoom.yMax");
+    evalType("number|null");
   }
 
   set("graph");
 
-  if (evalObject()) {
+  if (evalType("object")) {
     set("graph.dataX");
 
-    if (evalArray()) {
+    if (evalType("array")) {
       evalArrayContains("anyArray");
       set2("graph.dataY");
 
@@ -3054,7 +3019,7 @@ Options.prototype._evalOptions = function () {
 
     set("graph.dataY");
 
-    if (evalArray()) {
+    if (evalType("array")) {
       evalArrayContains("anyArray");
       set2("graph.dataX"); //Only one dataX(incl implicit). All dataY have to be of the same size.
 
@@ -3082,116 +3047,116 @@ Options.prototype._evalOptions = function () {
 
     set("graph.colors");
 
-    if (evalArray()) {
+    if (evalType("array")) {
       evalArrayContains("color");
     }
 
     set("graph.names");
 
-    if (evalArray()) {
+    if (evalType("array")) {
       evalArrayContains("string");
     }
 
     set("graph.lineWidth");
 
-    if (evalNumber()) {
+    if (evalType("number")) {
       evalCond("obj >= 0");
     }
 
     set("graph.smoothing");
 
-    if (evalInt()) {
+    if (evalType("int")) {
       evalCond("obj >= 0");
     }
 
     set("graph.simplify");
 
-    if (evalNumber()) {
+    if (evalType("number")) {
       evalCond("obj >= 0 && obj <= 1");
     }
 
     set("graph.fill");
-    evalBool();
+    evalType("bool");
     set("graph.compositeOperation");
-    evalCompositeOperation();
+    evalType("compositeOperation");
   }
 
   set("axes");
 
-  if (evalObject()) {
+  if (evalType("object")) {
     set("axes.tickMarkers");
 
-    if (evalObject()) {
+    if (evalType("object")) {
       set("axes.tickMarkers.show");
-      evalBool();
+      evalType("bool");
       set("axes.tickMarkers.length");
 
-      if (evalInt()) {
+      if (evalType("int")) {
         evalCond("obj > 0");
       }
 
       set("axes.tickMarkers.width");
 
-      if (evalInt()) {
+      if (evalType("int")) {
         evalCond("obj > 0");
       }
 
       set("axes.tickMarkers.offset");
 
-      if (evalInt()) {
+      if (evalType("int")) {
         evalCond("obj >= 0");
       }
 
       set("axes.tickMarkers.color");
-      evalColor();
+      evalType("color");
     }
 
     set("axes.tickLabels");
 
-    if (evalObject()) {
+    if (evalType("object")) {
       set("axes.tickLabels.show");
-      evalBool();
+      evalType("bool");
       set("axes.tickLabels.color");
-      evalColor();
+      evalType("color");
       set("axes.tickLabels.font");
-      evalFont();
+      evalType("font");
       set("axes.tickLabels.size");
 
-      if (evalInt()) {
+      if (evalType("int")) {
         evalCond("obj > 0");
       }
 
       set("axes.tickLabels.width");
 
-      if (evalInt()) {
+      if (evalType("int")) {
         evalCond("obj > 0");
       }
 
       set("axes.tickLabels.offset");
 
-      if (evalInt()) {
+      if (evalType("int")) {
         evalCond("obj >= 0");
       }
     }
 
     set("axes.labels");
 
-    if (evalObject()) {
+    if (evalType("object")) {
       set("axes.labels.color");
-      evalColor();
+      evalType("color");
       set("axes.labels.font");
-      evalFont();
+      evalType("font");
       set("axes.labels.size");
 
-      if (evalInt()) {
+      if (evalType("int")) {
         evalCond("obj > 0");
       }
 
       set("axes.labels.offset");
-      evalInt();
+      evalType("int");
       set("axes.labels.padding");
 
-      if (evalInt()) {
+      if (evalType("int")) {
         evalCond("obj >= 0");
       }
     } //axes x and y
@@ -3202,35 +3167,35 @@ Options.prototype._evalOptions = function () {
     for (var i = 0; i < axes.length; ++i) {
       set(axes[i]);
 
-      if (evalObject()) {
+      if (evalType("object")) {
         set(axes[i] + ".show");
-        evalBool();
+        evalType("bool");
         set(axes[i] + ".inverted");
-        evalBool();
+        evalType("bool");
         set(axes[i] + ".log");
-        evalBool();
+        evalType("bool");
         set(axes[i] + "." + (axes[i] === "axes.x" ? "height" : "width"));
-        evalInt();
+        evalType("int");
         evalCond("obj >= 0");
         set(axes[i] + ".grid");
 
-        if (evalObject()) {
+        if (evalType("object")) {
           set(axes[i] + ".grid.width");
-          evalInt();
+          evalType("int");
           evalCond("obj >= 0");
           set(axes[i] + ".grid.color");
-          evalColor();
+          evalType("color");
         }
 
         set(axes[i] + ".label");
-        evalString();
+        evalType("string");
         set(axes[i] + ".bounds");
 
-        if (evalObject()) {
+        if (evalType("object")) {
           set(axes[i] + ".bounds.min");
 
           if (!_Is__WEBPACK_IMPORTED_MODULE_1__["default"].isNull(obj)) {
-            evalNumber();
+            evalType("number");
             set2(axes[i] + ".log");
 
             if (obj2 && obj <= 0) {
@@ -3241,7 +3206,7 @@ Options.prototype._evalOptions = function () {
           set(axes[i] + ".bounds.max");
 
           if (!_Is__WEBPACK_IMPORTED_MODULE_1__["default"].isNull(obj)) {
-            evalNumber();
+            evalType("number");
             set2(axes[i] + ".log");
 
             if (obj2 && obj <= 0) {
@@ -3260,31 +3225,31 @@ Options.prototype._evalOptions = function () {
         set(axes[i] + ".legendValueFormatter");
 
         if (!_Is__WEBPACK_IMPORTED_MODULE_1__["default"].isNull(obj)) {
-          evalFunction();
+          evalType("function");
         }
 
         set(axes[i] + ".tickerValuePreFormatter");
 
         if (!_Is__WEBPACK_IMPORTED_MODULE_1__["default"].isNull(obj)) {
-          evalFunction();
+          evalType("function");
         }
 
         set(axes[i] + ".tickerValuePostFormatter");
 
         if (!_Is__WEBPACK_IMPORTED_MODULE_1__["default"].isNull(obj)) {
-          evalFunction();
+          evalType("function");
         }
 
         set(axes[i] + ".tickerLabelFormatter");
 
         if (!_Is__WEBPACK_IMPORTED_MODULE_1__["default"].isNull(obj)) {
-          evalFunction();
+          evalType("function");
         }
 
         set(axes[i] + ".ticker");
 
         if (!_Is__WEBPACK_IMPORTED_MODULE_1__["default"].isNull(obj)) {
-          evalFunction();
+          evalType("function");
         }
       }
     }
@@ -3292,228 +3257,93 @@ Options.prototype._evalOptions = function () {
 
   set("border");
 
-  if (evalObject()) {
+  if (evalType("object")) {
     set("border.style");
-    evalBorderStyle();
+    evalType("borderStyle");
     set("border.color");
-    evalColor();
+    evalType("color");
     set("border.width");
-    evalBorderWidth();
+    evalType("borderWidth");
   }
 
   set("spinner");
 
-  if (evalObject()) {
+  if (evalType("object")) {
     set("spinner.show");
-    evalBool();
+    evalType("bool");
     set("spinner.lines");
 
-    if (evalInt()) {
+    if (evalType("int")) {
       evalCond("obj > 0");
     }
 
     set("spinner.length");
 
-    if (evalInt()) {
+    if (evalType("int")) {
       evalCond("obj > 0");
     }
 
     set("spinner.width");
 
-    if (evalInt()) {
+    if (evalType("int")) {
       evalCond("obj > 0");
     }
 
     set("spinner.radius");
 
-    if (evalInt()) {
+    if (evalType("int")) {
       evalCond("obj > 0");
     }
 
     set("spinner.corners");
 
-    if (evalNumber()) {
+    if (evalType("number")) {
       evalCond("obj >= 0 && obj <= 1");
     }
 
     set("spinner.rotate");
 
-    if (evalInt()) {
+    if (evalType("int")) {
       evalCond("obj >= 0");
     }
 
     set("spinner.direction");
 
-    if (evalInt()) {
+    if (evalType("int")) {
       evalCond("obj === -1 || obj === 1");
     }
 
     set("spinner.color");
-    evalColor();
+    evalType("color");
     set("spinner.speed");
 
-    if (evalNumber()) {
+    if (evalType("number")) {
       evalCond("obj > 0");
     }
 
     set("spinner.trail");
 
-    if (evalInt()) {
+    if (evalType("int")) {
       evalCond("obj >= 0");
     }
 
     set("spinner.shadow");
-    evalBool();
+    evalType("bool");
     set("spinner.hwaccel");
-    evalBool();
+    evalType("bool");
     set("spinner.position");
 
-    if (evalString()) {
+    if (evalType("string")) {
       evalCond("obj === 'relative' || obj === 'absolute'");
     }
 
     set("spinner.top");
-    evalSize();
+    evalType("size");
     set("spinner.left");
-    evalSize();
+    evalType("size");
   }
 
   this._isOk = optionsOk;
-};
-/**
- * Create all the members that contains the user given settings.
- * @private
- */
-
-
-Options.prototype._createMembers = function () {
-  this.debug = null;
-  this.interaction = {
-    resize: null,
-    trackMouse: null,
-    zoom: null,
-    smoothing: null
-  };
-  this.title = {
-    show: null,
-    bold: null,
-    label: null,
-    size: null,
-    offsetX: null,
-    offsetY: null,
-    padding: null,
-    font: null,
-    color: null,
-    align: null
-  };
-  this.legend = {
-    location: null,
-    font: null,
-    size: null,
-    offsetX: null,
-    offsetY: null,
-    align: null,
-    newLine: null
-  };
-  this.graph = {
-    dataX: null,
-    dataY: null,
-    colors: null,
-    names: null,
-    lineWidth: null,
-    smoothing: null,
-    simplify: null,
-    fill: null,
-    compositeOperation: null
-  };
-  this.axes = {
-    tickMarkers: {
-      show: null,
-      length: null,
-      width: null,
-      offset: null,
-      color: null
-    },
-    tickLabels: {
-      show: null,
-      color: null,
-      font: null,
-      size: null,
-      width: null,
-      offset: null
-    },
-    labels: {
-      show: null,
-      color: null,
-      font: null,
-      size: null,
-      offset: null,
-      padding: null
-    },
-    x: {
-      show: null,
-      inverted: null,
-      log: null,
-      height: null,
-      label: null,
-      legendValueFormatter: null,
-      tickerValuePreFormatter: null,
-      tickerValuePostFormatter: null,
-      tickerLabelFormatter: null,
-      ticker: null,
-      grid: {
-        width: null,
-        color: null
-      },
-      bounds: {
-        min: null,
-        max: null
-      }
-    },
-    y: {
-      show: null,
-      inverted: null,
-      log: null,
-      width: null,
-      label: null,
-      legendValueFormatter: null,
-      tickerValuePreFormatter: null,
-      tickerValuePostFormatter: null,
-      tickerLabelFormatter: null,
-      ticker: null,
-      grid: {
-        width: null,
-        color: null
-      },
-      bounds: {
-        min: null,
-        max: null
-      }
-    }
-  };
-  this.border = {
-    style: null,
-    color: null,
-    width: null
-  };
-  this.spinner = {
-    show: null,
-    lines: null,
-    length: null,
-    width: null,
-    radius: null,
-    corners: null,
-    rotate: null,
-    direction: null,
-    color: null,
-    speed: null,
-    trail: null,
-    shadow: null,
-    hwaccel: null,
-    position: null,
-    top: null,
-    left: null
-  };
 };
 /**
  @typedef OPTIONS_OBJECT
@@ -3546,6 +3376,19 @@ Options.prototype._createMembers = function () {
  @property {int} legend.offsetY - X-axis offset in pixels. Between legend and graph top.
  @property {int} legend.align -  The legend alignment. ["left", "right"]
  @property {int} legend.newLine -  If true a new line is made between each data set.
+
+ @property {object} highlight - Options regarding highlighting.
+ @property {bool} highlight.xMin - X-axis low value. 
+ @property {int} highlight.xMax - X-axis high value.
+ @property {string} highlight.yMin - Y-axis low value.
+ @property {int} highlight.yMax - Y-axis high value.
+ @property {string} highlight.color - Color of the highlight.
+
+ @property {object} zoom - Options regarding default zoom.
+ @property {bool} zoom.xMIn - X-axis low value. 
+ @property {int} zoom.xMax - X-axis high value.
+ @property {string} zoom.yMin - Y-axis low value.
+ @property {int} zoom.yMax - Y-axis high value.
 
  @property {object} graph - Options regarding the graph curve.
  @property {array<array>} graph.dataX - List of data sets for the X-axis. Can contain typed arrays.
@@ -3881,42 +3724,108 @@ if (!window.HTMLCanvasElement || !window.CanvasRenderingContext2D) {
  * Create new graph.
  * @public
  * @constructor
- * @param {dom} parent - Parent div.  DOM or ID string. Graph will fill this div.
+ * @param {dom|string} container - Element.  DOM or ID string. Graph will fill this element.
  * @param {OPTIONS_OBJECT} options - Options to customize the graph.
  * @returns {Graph}
  */
 
-function Graph(parent, options) {
+function Graph(container, options) {
   if (this instanceof Graph) {
-    this._init(parent, options);
+    this._init(container, options);
   } //The new keyword was omitted.
   else {
-      return new Graph(parent, options);
+      return new Graph(container, options);
     }
 }
 /**
- * Implementation of the constructor.
- * @private
- * @param {dom} parent - Parent div. DOM or ID string. Graph will fill this div.
- * @param {OPTIONS} options - Options to customize the graph.
+ * Get dummy dataY array.
+ * @public
+ * @returns {array}
  */
 
 
-Graph.prototype._init = function (parent, options) {
+Graph.createDummyData = _Static__WEBPACK_IMPORTED_MODULE_4__["default"].createDummyData;
+/**
+ * Get options instance.
+ * @public
+ * @returns {OPTIONS_OBJECT}
+ */
+
+Graph.prototype.getOptions = function () {
+  return this._options;
+};
+/**
+ * Get default options.
+ * @public
+ * @returns {OPTIONS_OBJECT}
+ */
+
+
+Graph.getDefaultOptions = _Options__WEBPACK_IMPORTED_MODULE_5__["default"].getDefault;
+/**
+ * Sets all options to their default values.
+ * @public
+ */
+
+Graph.prototype.setDefaultOptions = function () {
+  this._options.setDefault();
+};
+/**
+ * Set new options.
+ * @public
+ * @param {OPTIONS_OBJECT} options - Options to customize the graph.
+ */
+
+
+Graph.prototype.setOptions = function (options) {
+  this._options.set(options);
+
+  this._hasCalculatedGraphSize = false;
+
+  if (this._options.isOk()) {
+    this._axes.x.zoom(this._options.zoom.xMin, this._options.zoom.xMax);
+
+    this._axes.y.zoom(this._options.zoom.yMin, this._options.zoom.yMax);
+
+    this._axes.x.calculateBounds();
+
+    this._axes.y.calculateBounds();
+
+    this._interaction.updateOptions();
+
+    this._canvas.graph.setBorder(this._options.border.style, this._options.border.color, this._options.border.width);
+
+    this._initLegend();
+
+    this._plot();
+  }
+};
+/* ********** PRIVATE ********** */
+
+/**
+ * Implementation of the constructor.
+ * @private
+ */
+
+
+Graph.prototype._init = function (container, options) {
+  if (typeof el === "string") {
+    container = document.getElementById(container);
+  }
+
   if (!parent) {
-    console.error("owp.graph ERROR: Parent dom is null");
+    console.error("owp.graph ERROR: Element dom is null");
     return;
   }
 
-  parent.style.position = "relative";
-  this._parent = parent;
+  container.style.position = "relative";
+  this._container = container;
   this._options = new _Options__WEBPACK_IMPORTED_MODULE_5__["default"]();
-  this._highlights = [];
   this._canvas = {
-    background: new _Canvas__WEBPACK_IMPORTED_MODULE_1__["default"](parent, "background"),
-    graph: new _Canvas__WEBPACK_IMPORTED_MODULE_1__["default"](parent, "graph", true),
-    highlight: new _Canvas__WEBPACK_IMPORTED_MODULE_1__["default"](parent, "highlight"),
-    interaction: new _Canvas__WEBPACK_IMPORTED_MODULE_1__["default"](parent, "interaction")
+    background: new _Canvas__WEBPACK_IMPORTED_MODULE_1__["default"](container, "background"),
+    graph: new _Canvas__WEBPACK_IMPORTED_MODULE_1__["default"](container, "graph", true),
+    highlight: new _Canvas__WEBPACK_IMPORTED_MODULE_1__["default"](container, "highlight"),
+    interaction: new _Canvas__WEBPACK_IMPORTED_MODULE_1__["default"](container, "interaction")
   };
 
   this._canvas.background.setZIndex(0);
@@ -3971,9 +3880,9 @@ Graph.prototype._initLegend = function () {
     } else {
       //Set same parent for legend as rest of graph.
       if (this._canvas.legend) {
-        this._canvas.legend.setParent(this._parent);
+        this._canvas.legend.setParent(this._container);
       } else {
-        this._canvas.legend = new _Canvas__WEBPACK_IMPORTED_MODULE_1__["default"](this._parent);
+        this._canvas.legend = new _Canvas__WEBPACK_IMPORTED_MODULE_1__["default"](this._container);
 
         this._canvas.legend.disableMouseInteraction();
       }
@@ -4040,177 +3949,6 @@ Graph.prototype._renderLegend = function (values) {
   }
 };
 /**
- * Get options instance.
- * @public
- * @returns {Options}
- */
-
-
-Graph.prototype.getOptions = function () {
-  return this._options;
-};
-/**
- * Sets all options to their default values.
- * @public
- */
-
-
-Graph.prototype.setDefaultOptions = function () {
-  this.setOptions(_Options__WEBPACK_IMPORTED_MODULE_5__["default"].getDefault());
-};
-/**
- * Set new options.
- * @public
- * @param {OPTIONS_OBJECT} options - Options to customize the graph.
- */
-
-
-Graph.prototype.setOptions = function (options) {
-  this._options.set(options);
-
-  this._hasCalculatedGraphSize = false;
-
-  if (this._options.isOk()) {
-    this._axes.x.calculateBounds();
-
-    this._axes.y.calculateBounds();
-
-    this._interaction.updateOptions();
-
-    this._canvas.graph.setBorder(this._options.border.style, this._options.border.color, this._options.border.width);
-
-    this._initLegend();
-
-    this._plot();
-  }
-};
-/**
- * Set new data.
- * @public
- */
-
-
-Graph.prototype.setData = function (dataX, dataY) {
-  const options = {
-    graph: {}
-  };
-
-  if (dataX) {
-    options.graph.dataX = dataX;
-  }
-
-  if (dataY) {
-    options.graph.dataY = dataY;
-  }
-
-  this.setOptions(options);
-};
-/**
- * 
- * @param {number} x1 - Min X value.
- * @param {number} y1 - Min Y value.
- * @param {number} x2 - Max X-value.
- * @param {number} y2 - Max Y-value.
- * @returns {undefined}
- */
-
-
-Graph.prototype.zoom = function (x1, y1, x2, y2) {
-  this._axes.x.overrideBounds({
-    min: x1,
-    max: x2
-  });
-
-  this._axes.y.overrideBounds({
-    min: y1,
-    max: y2
-  });
-
-  this._plot();
-};
-/**
- * Reset zoom level to zero.
- * @returns {undefined}
- */
-
-
-Graph.prototype.resetZoom = function () {
-  this._axes.x.clearOverridenBounds();
-
-  this._axes.y.clearOverridenBounds();
-
-  this._plot();
-};
-/**
- * Clears/removes current highlight.
- * @public
- */
-
-
-Graph.prototype.clearHighlight = function () {
-  this._canvas.highlight.clear();
-
-  this._highlights = [];
-};
-/**
- * Highlight the given are of the graph.
- * @public
- * @param {number} x1 - First x-axis value.
- * @param {number} y1 - First y-axis value.
- * @param {number} x2 - Second x-axis value.
- * @param {number} y2 - Second y-axis value.
- * @param {string} color - Color of the selected area.
- */
-
-
-Graph.prototype.highlight = function (x1, y1, x2, y2, color) {
-  this._highlights.push({
-    x1: x1,
-    y1: y1,
-    x2: x2,
-    y2: y2,
-    color: color ? color : "rgba(0, 0, 255, 0.2)"
-  });
-
-  if (this._axes.x.hasBounds() && this._axes.y.hasBounds()) {
-    this._renderHighlight();
-  }
-};
-/**
- * Manually start or stop spinner.
- * @public
- * @param {bool} doSpin - If true the spinner will start.
- */
-
-
-Graph.prototype.spin = function (doSpin) {
-  if (doSpin) {
-    //Spinner does not exist. Create it.
-    if (!this._spinner) {
-      this._spinnerDiv = document.createElement("div");
-
-      this._parent.append(this._spinnerDiv);
-
-      this._spinnerDiv.style.position = "absolute";
-      this._spinnerDiv.style["z-index"] = 3;
-
-      this._updateSpinnerSize();
-
-      this._spinner = new _lib_spin_min__WEBPACK_IMPORTED_MODULE_0___default.a(this._options.spinner);
-    }
-
-    if (!this._spinner.isSpinning) {
-      this._spinner.spin(this._spinnerDiv);
-
-      this._spinner.isSpinning = true;
-    }
-  } else if (this._spinner) {
-    this._spinner.stop();
-
-    this._spinner.isSpinning = false;
-  }
-};
-/**
  * Plots/draws the graph.
  * @private
  */
@@ -4243,7 +3981,9 @@ Graph.prototype._plot = function () {
 
   this._renderTitle();
 
-  this._renderAxesLabels(); //Has bounds. Render bounds related features.
+  this._renderAxesLabels();
+
+  this._renderSpin(); //Has bounds. Render bounds related features.
 
 
   if (this._axes.x.hasBounds() && this._axes.y.hasBounds()) {
@@ -4271,6 +4011,43 @@ Graph.prototype._plot = function () {
   if (this._options.debug) {
     console.timeEnd("owp.graph DEBUG: Plot time");
   }
+};
+/**
+ * Render the spinner
+ * @private
+ */
+
+
+Graph.prototype._renderSpin = function () {
+  //Can't update options so have to remove old spinner always.
+  if (this._spinner) {
+    this._spinner.stop();
+
+    this._spinner = null;
+  } //Show spinner
+
+
+  if (this._options.spinner.show) {
+    //Spinner div does not exist. Create it.
+    if (!this._spinnerDiv) {
+      this._spinnerDiv = document.createElement("div");
+      this._spinnerDiv.style.position = "absolute";
+      this._spinnerDiv.style["z-index"] = 3;
+
+      this._container.append(this._spinnerDiv);
+
+      this._updateSpinnerSize();
+    }
+
+    this._spinner = new _lib_spin_min__WEBPACK_IMPORTED_MODULE_0___default.a(this._options.spinner);
+
+    this._spinner.spin(this._spinnerDiv);
+  } //Hide spinner. Remove old div.
+  else if (this._spinnerDiv) {
+      this._spinnerDiv.remove();
+
+      this._spinnerDiv = null;
+    }
 };
 /**
  * Updates the position and size of the spinner div based on the graph canvas.
@@ -4496,35 +4273,22 @@ Graph.prototype._renderTitle = function () {
 Graph.prototype._renderHighlight = function () {
   this._canvas.highlight.clear();
 
-  for (let i = 0; i < this._highlights.length; ++i) {
-    let x1, y1, x2, y2; //Convert values to pixels.
+  const h = this._options.highlight;
 
-    if (_Is__WEBPACK_IMPORTED_MODULE_6__["default"].isNull(this._highlights[i].x1)) {
-      x1 = 0;
-    } else {
-      x1 = this._axes.x.valueToPixel(this._highlights[i].x1);
-    }
+  if (_Is__WEBPACK_IMPORTED_MODULE_6__["default"].isNull(h.xMin) && _Is__WEBPACK_IMPORTED_MODULE_6__["default"].isNull(h.xMax) && _Is__WEBPACK_IMPORTED_MODULE_6__["default"].isNull(h.yMin) && _Is__WEBPACK_IMPORTED_MODULE_6__["default"].isNull(h.yMax)) {
+    return;
+  } //Convert values to pixels.
 
-    if (_Is__WEBPACK_IMPORTED_MODULE_6__["default"].isNull(this._highlights[i].y1)) {
-      y1 = 0;
-    } else {
-      y1 = this._axes.y.valueToPixel(this._highlights[i].y1);
-    }
 
-    if (_Is__WEBPACK_IMPORTED_MODULE_6__["default"].isNull(this._highlights[i].x2)) {
-      x2 = this._canvas.graph.getContentWidth();
-    } else {
-      x2 = this._axes.x.valueToPixel(this._highlights[i].x2);
-    }
+  const x1 = this._axes.x.valueToPixel(_Is__WEBPACK_IMPORTED_MODULE_6__["default"].isNull(h.xMin) ? this._axes.x.getMin() : h.xMin);
 
-    if (_Is__WEBPACK_IMPORTED_MODULE_6__["default"].isNull(this._highlights[i].y2)) {
-      y2 = this._canvas.graph.getContentHeight();
-    } else {
-      y2 = this._axes.y.valueToPixel(this._highlights[i].y2);
-    }
+  const x2 = this._axes.x.valueToPixel(_Is__WEBPACK_IMPORTED_MODULE_6__["default"].isNull(h.xMax) ? this._axes.x.getMax() : h.xMax);
 
-    this._canvas.highlight.fillRectangle2(x1, y1, x2, y2, this._highlights[i].color);
-  }
+  const y1 = this._axes.y.valueToPixel(_Is__WEBPACK_IMPORTED_MODULE_6__["default"].isNull(h.yMin) ? this._axes.y.getMin() : h.yMin);
+
+  const y2 = this._axes.y.valueToPixel(_Is__WEBPACK_IMPORTED_MODULE_6__["default"].isNull(h.yMax) ? this._axes.y.getMax() : h.yMax);
+
+  this._canvas.highlight.fillRectangle2(x1, y1, x2, y2, h.color);
 };
 /**
  * Renders the graph curve on the graph canvas.
@@ -4640,8 +4404,6 @@ Graph.prototype._renderGraph = function () {
 /**
  * Get offset for the given paramters.
  * @private
- * @param {array} array - List of string parameters to get offset for.
- * @returns {int} - Offset in number of pixels.
  */
 
 
@@ -4744,8 +4506,6 @@ Graph.prototype._getOffset = function (array) {
   return Math.round(offset);
 };
 
-Graph.createDummyData = _Static__WEBPACK_IMPORTED_MODULE_4__["default"].createDummyData;
-Graph.getDefaultOptions = _Options__WEBPACK_IMPORTED_MODULE_5__["default"].getDefault;
 /* harmony default export */ __webpack_exports__["default"] = (Graph);
 
 /***/ }),
