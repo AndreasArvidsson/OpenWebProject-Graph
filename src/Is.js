@@ -134,7 +134,7 @@ Is.isAnyArray = function (obj) {
  * @returns {bool}
  */
 Is.isColor = function (obj) {
-    var div = document.createElement("div");
+    const div = document.createElement("div");
     div.style.borderColor = "";
     div.style.borderColor = obj;
     return div.style.borderColor !== "";
@@ -147,7 +147,7 @@ Is.isColor = function (obj) {
  * @returns {bool}
  */
 Is.isSize = function (obj) {
-    var div = document.createElement("div");
+    const div = document.createElement("div");
     div.style.width = "";
     div.style.width = obj;
     return div.style.width !== "";
@@ -164,9 +164,23 @@ Is.isAlignment = function (obj, noCenter) {
     obj = obj.toLowerCase();
     if (noCenter) {
         return obj === "left" || obj === "right";
-    } else {
+    }
+    else {
         return obj === "left" || obj === "center" || obj === "right";
     }
+};
+
+/**
+ * Check of the given object is a font.
+ * @public
+ * @param {string} obj - Object to evaluate.
+ * @returns {bool}
+ */
+Is.isFont = function (obj) {
+    const div = document.createElement("div");
+    div.style["font-family"] = "";
+    div.style["font-family"] = obj;
+    return div.style["font-family"] !== "";
 };
 
 /**
@@ -206,14 +220,14 @@ Is.isCompositeOperation = function (obj) {
 };
 
 Is.isBorderWidth = function (obj) {
-    var div = document.createElement("div");
+    const div = document.createElement("div");
     div.style.borderWidth = "";
     div.style.borderWidth = obj;
     return div.style.borderWidth !== "";
 };
 
 Is.isBorderStyle = function (obj) {
-    var div = document.createElement("div");
+    const div = document.createElement("div");
     div.style.borderStyle = "";
     div.style.borderStyle = obj;
     return div.style.borderStyle !== "";
@@ -233,8 +247,9 @@ Is.getCompareCallback = function (type) {
         case "int":
             return Is.isInt;
         case "string":
-        case "font": //TODO
             return Is.isString;
+        case "font":
+            return Is.isFont;
         case "bool":
             return Is.isBool;
         case "array":
@@ -274,12 +289,12 @@ Is.getCompareCallback = function (type) {
  * @returns {array<function>]}
  */
 Is.getCompareCallbacks = function (type) {
-    var callbacks = [];
-    var types = type.split("|");
+    const callbacks = [];
+    const types = type.split("|");
     if (!types.length) {
         throw new Error("Is.getCompareCallbacks: types is empty.");
     }
-    for (var i = 0; i < types.length; ++i) {
+    for (let i = 0; i < types.length; ++i) {
         callbacks.push(Is.getCompareCallback(types[i]));
     }
     return callbacks;
@@ -308,8 +323,8 @@ Is.isOfType = function (obj, type) {
  * @returns {bool} - True if the array only contains items if the given type.
  */
 Is.isContent = function (array, type) {
-    var compareCallback = Is.getCompareCallback(type);
-    for (var i = 0; i < array.length; ++i) {
+    const compareCallback = Is.getCompareCallback(type);
+    for (let i = 0; i < array.length; ++i) {
         if (!compareCallback(array[i])) {
             return false;
         }
@@ -318,7 +333,7 @@ Is.isContent = function (array, type) {
 };
 
 Is.isInOptions = function (value, options) {
-    for (var i = 0; i < options.length; ++i) {
+    for (let i = 0; i < options.length; ++i) {
         if (options[i] === value) {
             return true;
         }

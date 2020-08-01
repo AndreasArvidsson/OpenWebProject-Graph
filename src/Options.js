@@ -351,22 +351,22 @@ Options.prototype._getDataCallbackSmoothing = function (start, data) {
  * @private
  */
 Options.prototype._evalOptions = function () {
-    var optionsOk = true;
-    var obj, obj2, name, name2;
-    var options = this;
+    let optionsOk = true;
+    let obj, obj2, name, name2;
+    const options = this;
     function set(path) {
         name = path;
         obj = options;
-        var paths = path.split(".");
-        for (var i = 0; i < paths.length; ++i) {
+        const paths = path.split(".");
+        for (let i = 0; i < paths.length; ++i) {
             obj = obj[paths[i]];
         }
     }
     function set2(path) {
         name2 = path;
         obj2 = options;
-        var paths = path.split(".");
-        for (var i = 0; i < paths.length; ++i) {
+        const paths = path.split(".");
+        for (let i = 0; i < paths.length; ++i) {
             obj2 = obj2[paths[i]];
         }
     }
@@ -670,8 +670,8 @@ Options.prototype._evalOptions = function () {
         }
 
         //axes x and y
-        var axes = ["axes.x", "axes.y"];
-        for (var i = 0; i < axes.length; ++i) {
+        const axes = ["axes.x", "axes.y"];
+        for (let i = 0; i < axes.length; ++i) {
             set(axes[i]);
             if (evalType("object")) {
                 set(axes[i] + ".show");
