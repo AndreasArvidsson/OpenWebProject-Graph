@@ -225,27 +225,33 @@ Graph.prototype._renderLegend = function (values) {
         }
     }
 
+    const printX = () => {
+        printValue(
+            this._options.graph.colors[0],
+            this._options.getName(0),
+            values ? this._axes.x.formatLegendValue(values[0]) : undefined
+        );
+    }
+
+    const printY = (i) => {
+        printValue(
+            this._options.graph.colors[i],
+            this._options.getName(i),
+            values ? this._axes.y.formatLegendValue(values[i]) : undefined
+        );
+    }
+
     if (alignLeft || newLine) {
-        for (let i = 0; i <= this._options.graph.dataY.length; ++i) {
-            printValue(
-                this._options.graph.colors[i],
-                this._options.getName(i),
-                values && values[i] !== undefined
-                    ? this._axes.y.formatLegendValue(values[i])
-                    : undefined
-            );
+        printX();
+        for (let i = 1; i <= this._options.graph.dataY.length; ++i) {
+            printY(i);
         }
     }
     else {
-        for (let i = this._options.graph.dataY.length; i >= 0; --i) {
-            printValue(
-                this._options.graph.colors[i],
-                this._options.getName(i),
-                values && values[i] !== undefined
-                    ? this._axes.y.formatLegendValue(values[i])
-                    : undefined
-            );
+        for (let i = this._options.graph.dataY.length; i >= 1; --i) {
+            printY(i);
         }
+        printX();
     }
 };
 
