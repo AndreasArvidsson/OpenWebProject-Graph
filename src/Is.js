@@ -323,9 +323,9 @@ Is.isOfType = function (obj, type) {
  * @returns {bool} - True if the array only contains items if the given type.
  */
 Is.isContent = function (array, type) {
-    const compareCallback = Is.getCompareCallback(type);
+    const callbacks = Is.getCompareCallbacks(type);
     for (let i = 0; i < array.length; ++i) {
-        if (!compareCallback(array[i])) {
+        if (!isOfType2(array[i], callbacks)) {
             return false;
         }
     }
@@ -342,3 +342,12 @@ Is.isInOptions = function (value, options) {
 };
 
 export default Is;
+
+function isOfType2(obj, callbacks) {
+    for (let i in callbacks) {
+        if (callbacks[i](obj)) {
+            return true;
+        }
+    }
+    return false;
+}

@@ -581,6 +581,17 @@ Graph.prototype._renderGraph = function () {
         //Start path.
         context.beginPath();
 
+        if (this._options.graph.dashed[i]) {
+            let pattern = this._options.graph.dashed[i];
+            if (pattern === true) {
+                pattern = [5, 8];
+            }
+            context.setLineDash(pattern);
+        }
+        else {
+            context.setLineDash([]);
+        }
+
         //Render simplified data set.
         if (this._options.graph.simplify) {
             const simplify = this._options.graph.simplify;

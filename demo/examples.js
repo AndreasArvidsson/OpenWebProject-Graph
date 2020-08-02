@@ -52,6 +52,10 @@ function init() {
     options.graph.fill = true;
     addGraph(options, true);
 
+    options = getOptions("Dashed line");
+    options.graph.dashed = [[1], true];
+    addGraph(options, true);
+
     options = getOptions("Legend right");
     options.legend = {
         location: "right",
