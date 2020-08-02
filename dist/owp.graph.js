@@ -2421,10 +2421,10 @@ Is.isOfType = function (obj, type) {
 
 
 Is.isContent = function (array, type) {
-  const compareCallback = Is.getCompareCallback(type);
+  const callbacks = Is.getCompareCallbacks(type);
 
   for (let i = 0; i < array.length; ++i) {
-    if (!compareCallback(array[i])) {
+    if (!isOfType2(array[i], callbacks)) {
       return false;
     }
   }
@@ -2443,6 +2443,16 @@ Is.isInOptions = function (value, options) {
 };
 
 /* harmony default export */ __webpack_exports__["default"] = (Is);
+
+function isOfType2(obj, callbacks) {
+  for (let i in callbacks) {
+    if (callbacks[i](obj)) {
+      return true;
+    }
+  }
+
+  return false;
+}
 
 /***/ }),
 
@@ -2581,6 +2591,7 @@ Options.getDefault = function () {
       dataY: [],
       colors: ["#000000", "#0000FF", "#FF0000", "#800080", "#00FF00", "#8080FF", "#FF8080", "#FF00FF", "#00FFFF"],
       names: [],
+      dashed: [],
       lineWidth: 1,
       smoothing: 0,
       simplify: 0.1,
@@ -3068,6 +3079,12 @@ Options.prototype._evalOptions = function () {
       evalArrayContains("string");
     }
 
+    set("graph.dashed");
+
+    if (evalType("array")) {
+      evalArrayContains("bool|array");
+    }
+
     set("graph.lineWidth");
 
     if (evalType("number")) {
@@ -3406,6 +3423,7 @@ Options.prototype._evalOptions = function () {
  @property {array<array>} graph.dataY - List of data sets for the Y-axis. Can contain typed arrays.
  @property {array<string>} graph.colors - List of colors for each dataY set.
  @property {array<string>} graph.names - List of names for each dataY set.
+ @property {array<string>} graph.dashed - List of dash parameters for each dataY set. true for default or number array for cusatom.
  @property {int} graph.lineWidth - Width in pixels of the stroked line.
  @property {int} graph.smoothing - Number of samples on each side of the central value for the central moving average algorithm. 0 = disabled.
  @property {int} graph.simplify - Pixel tolerance for the simplification algorithm. 0 = disabled.
@@ -4360,7 +4378,20 @@ Graph.prototype._renderGraph = function () {
     const getDataY = this._options.getDataCallback("y", i, start); //Start path.
 
 
-    context.beginPath(); //Render simplified data set.
+    context.beginPath();
+
+    if (this._options.graph.dashed[i]) {
+      let pattern = this._options.graph.dashed[i];
+
+      if (pattern === true) {
+        pattern = [5, 8];
+      }
+
+      context.setLineDash(pattern);
+    } else {
+      context.setLineDash([]);
+    } //Render simplified data set.
+
 
     if (this._options.graph.simplify) {
       const simplify = this._options.graph.simplify;
