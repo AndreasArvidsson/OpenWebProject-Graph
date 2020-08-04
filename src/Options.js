@@ -120,6 +120,7 @@ Options.getDefault = function () {
             names: [],
             dashed: [],
             lineWidth: 1,
+            markerRadius: 0,
             smoothing: 0,
             simplify: 0.1,
             fill: false,
@@ -583,6 +584,11 @@ Options.prototype._evalOptions = function () {
             evalCond("obj >= 0");
         }
 
+        set("graph.markerRadius");
+        if (evalType("number")) {
+            evalCond("obj >= 0");
+        }
+
         set("graph.smoothing");
         if (evalType("int")) {
             evalCond("obj >= 0");
@@ -899,6 +905,7 @@ Options.prototype._evalOptions = function () {
  @property {array<string>} graph.names - List of names for each dataY set.
  @property {array<string>} graph.dashed - List of dash parameters for each dataY set. true for default or number array for cusatom.
  @property {int} graph.lineWidth - Width in pixels of the stroked line.
+ @property {int} graph.markerRadius - Width in pixels of the radius of the marker.
  @property {int} graph.smoothing - Number of samples on each side of the central value for the central moving average algorithm. 0 = disabled.
  @property {int} graph.simplify - Pixel tolerance for the simplification algorithm. 0 = disabled.
  @property {bool} graph.fill - If true the area under the graph will be filled.

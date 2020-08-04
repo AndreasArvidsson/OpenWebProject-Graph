@@ -560,10 +560,17 @@ Graph.prototype._renderGraph = function () {
     //Value bounds        
     const min = this._axes.x.getMin();
     const max = this._axes.x.getMax();
+    //Render parameters
+    const fillGraph = this._options.graph.fill;
+    const markerRadius = this._options.graph.markerRadius;
+    const renderLine = !!this._options.graph.lineWidth;
+    //Cant combine markers with filled lines.
+    const renderMarker = !!markerRadius && (!fillGraph || !renderLine);
     //Get canvas context directly for increased performance.
-    const context = this._canvas.graph.getContext();
-    context.lineWidth = this._options.graph.lineWidth;
-    context.globalCompositeOperation = this._options.graph.compositeOperation;
+    const ctx = this._canvas.graph.getContext();
+    ctx.lineWidth = this._options.graph.lineWidth;
+    ctx.globalCompositeOperation = this._options.graph.compositeOperation;
+
     for (let i = 0; i < this._options.graph.dataY.length; ++i) {
         //Aquire callback for getting X-axis data values.
         const getDataX = this._options.getDataCallback("x", i);
@@ -579,21 +586,12 @@ Graph.prototype._renderGraph = function () {
         const getDataY = this._options.getDataCallback("y", i, start);
 
         //Start path.
-        context.beginPath();
+        ctx.beginPath();
 
-        if (this._options.graph.dashed[i]) {
-            let pattern = this._options.graph.dashed[i];
-            if (pattern === true) {
-                pattern = [5, 8];
-            }
-            context.setLineDash(pattern);
-        }
-        else {
-            context.setLineDash([]);
-        }
-
-        //Render simplified data set.
-        if (this._options.graph.simplify) {
+        //Render simplified data set. Can't combine with markers
+        if (this._options.graph.simplify
+            && length > this._canvas.graph.getContentWidth()
+            && !renderMarker) {
             const simplify = this._options.graph.simplify;
             let oldX = valueToPixelX(getDataX(start));
             let minVal = getDataY(start);
@@ -608,45 +606,87 @@ Graph.prototype._renderGraph = function () {
                     maxVal = Math.max(maxVal, y);
                     continue;
                 }
-                context.lineTo(oldX, valueToPixelY(minVal));
+                ctx.lineTo(oldX, valueToPixelY(minVal));
                 //Only add the second point if it differs from the first.
                 if (minVal !== maxVal) {
-                    context.lineTo(oldX, valueToPixelY(maxVal));
+                    ctx.lineTo(oldX, valueToPixelY(maxVal));
                 }
                 oldX = newX;
                 minVal = getDataY(start);
                 maxVal = minVal;
             }
             //Needed to add the last step.
-            context.lineTo(oldX, valueToPixelY(minVal));
+            ctx.lineTo(oldX, valueToPixelY(minVal));
             if (minVal !== maxVal) {
-                context.lineTo(oldX, valueToPixelY(maxVal));
+                ctx.lineTo(oldX, valueToPixelY(maxVal));
             }
         }
         //Render full data set.
         else {
-            for (; start <= end; ++start) {
-                context.lineTo(valueToPixelX(getDataX(start)), valueToPixelY(getDataY(start)));
+            const circleAngle = 2 * Math.PI;
+            //Render line and markers
+            if (renderLine && renderMarker) {
+                for (; start <= end; ++start) {
+                    const x = valueToPixelX(getDataX(start));
+                    const y = valueToPixelY(getDataY(start));
+                    ctx.lineTo(x, y);
+                    ctx.moveTo(x + markerRadius, y);
+                    ctx.arc(x, y, markerRadius, 0, circleAngle);
+                    ctx.moveTo(x, y);
+                }
+            }
+            //Render only line
+            else if (renderLine) {
+                for (; start <= end; ++start) {
+                    ctx.lineTo(
+                        valueToPixelX(getDataX(start)),
+                        valueToPixelY(getDataY(start))
+                    );
+                }
+            }
+            //Render only markers
+            else if (renderMarker) {
+                for (; start <= end; ++start) {
+                    const x = valueToPixelX(getDataX(start));
+                    const y = valueToPixelY(getDataY(start));
+                    ctx.moveTo(x + markerRadius, y);
+                    ctx.arc(x, y, markerRadius, 0, circleAngle);
+                }
             }
         }
 
-        //Fill under graph.
-        if (this._options.graph.fill) {
-            if (this._options.axes.x.inverted) {
-                context.lineTo(0, this._canvas.graph.getContentHeight());
-                context.lineTo(this._canvas.graph.getContentWidth(), this._canvas.graph.getContentHeight());
-            } else {
-                context.lineTo(this._canvas.graph.getContentWidth() * this._canvas.graph.getRatio(), this._canvas.graph.getContentHeight() * this._canvas.graph.getRatio());
-                context.lineTo(0, this._canvas.graph.getContentHeight() * this._canvas.graph.getRatio());
+        //Fill graph.
+        if (fillGraph) {
+            if (renderLine) {
+                if (this._options.axes.x.inverted) {
+                    ctx.lineTo(0, this._canvas.graph.getContentHeight());
+                    ctx.lineTo(this._canvas.graph.getContentWidth(), this._canvas.graph.getContentHeight());
+                }
+                else {
+                    ctx.lineTo(this._canvas.graph.getContentWidth() * this._canvas.graph.getRatio(), this._canvas.graph.getContentHeight() * this._canvas.graph.getRatio());
+                    ctx.lineTo(0, this._canvas.graph.getContentHeight() * this._canvas.graph.getRatio());
+                }
+                ctx.closePath();
             }
-            context.closePath();
-            context.fillStyle = this._options.getColor(i + 1);
-            context.fill();
+            ctx.fillStyle = this._options.getColor(i + 1);
+            ctx.fill();
         }
         //Stroke line.
         else {
-            context.strokeStyle = this._options.getColor(i + 1);
-            context.stroke();
+            //Set dashed options
+            if (this._options.graph.dashed[i]) {
+                let pattern = this._options.graph.dashed[i];
+                if (pattern === true) {
+                    pattern = [5, 8];
+                }
+                ctx.setLineDash(pattern);
+            }
+            else {
+                ctx.setLineDash([]);
+            }
+
+            ctx.strokeStyle = this._options.getColor(i + 1);
+            ctx.stroke();
         }
     }
 };

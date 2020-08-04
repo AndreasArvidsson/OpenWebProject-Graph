@@ -5,6 +5,8 @@ const intSize = 200;
 const floatSize = 200;
 const dataYInt = Graph.createDummyData(intSize, "int");
 const dataYFloat = Graph.createDummyData(floatSize, "float");
+const simpleDataX = [[100, 200, 400]];
+const simpleDataY = [[1, 4, 2], [2, 3, 0.5]];
 
 function getOptions(title) {
     return {
@@ -30,14 +32,8 @@ function init() {
     let options;
 
     options = getOptions("Simple example");
-    delete options.graph.dataY;
-    options.graph.dataX = [
-        [100, 200, 400]
-    ];
-    options.graph.dataY = [
-        [1, 4, 2],
-        [2, 3, 0.5]
-    ];
+    options.graph.dataX = simpleDataX;
+    options.graph.dataY = simpleDataY;
     addGraph(options, undefined);
 
     options = getOptions("Standard line plot with two data sets");
@@ -55,6 +51,14 @@ function init() {
     options = getOptions("Dashed line");
     options.graph.dashed = [[1], true];
     addGraph(options, true);
+
+    options = getOptions("Markers");
+    delete options.graph.dataY;
+    options.graph.dataY = simpleDataY;
+    options.graph.lineWidth = 1;
+    options.graph.markerRadius = 5;
+    options.graph.dashed = [false, [1]]
+    addGraph(options, undefined);
 
     options = getOptions("Legend right");
     options.legend = {
