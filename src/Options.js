@@ -155,6 +155,7 @@ Options.getDefault = function () {
                 log: false,
                 height: 0,
                 label: "",
+                numTicks: 0,
                 legendValueFormatter: null,
                 tickerValuePreFormatter: null,
                 tickerValuePostFormatter: null,
@@ -175,6 +176,7 @@ Options.getDefault = function () {
                 log: false,
                 width: 0,
                 label: "",
+                numTicks: 0,
                 legendValueFormatter: null,
                 tickerValuePreFormatter: null,
                 tickerValuePostFormatter: null,
@@ -739,30 +741,24 @@ Options.prototype._evalOptions = function () {
                     }
                 }
 
+                set(axes[i] + ".numTicks");
+                evalType("int");
+
                 set(axes[i] + ".legendValueFormatter");
-                if (!Is.isNull(obj)) {
-                    evalType("function");
-                }
+                evalType("function|null");
 
                 set(axes[i] + ".tickerValuePreFormatter");
-                if (!Is.isNull(obj)) {
-                    evalType("function");
-                }
+                evalType("function|null");
 
                 set(axes[i] + ".tickerValuePostFormatter");
-                if (!Is.isNull(obj)) {
-                    evalType("function");
-                }
+                evalType("function|null");
 
                 set(axes[i] + ".tickerLabelFormatter");
-                if (!Is.isNull(obj)) {
-                    evalType("function");
-                }
+                evalType("function|null");
 
                 set(axes[i] + ".ticker");
-                if (!Is.isNull(obj)) {
-                    evalType("function");
-                }
+                evalType("function|null");
+
             }
         }
     }
@@ -940,8 +936,12 @@ Options.prototype._evalOptions = function () {
  @property {bool} axes.x.inverted - If true the axis direction is inverted.
  @property {bool} axes.x.log - If true the values on the axis are logarithmically distributed.
  @property {int} axes.x.height - Height in pixels of the axis. 0 = automatic size.
- @property {int} axes.x.label - Text of the axis label. Set to "" to hide the label.
- @property {formatterCallback} axes.x.valueFormatter - Callback that formats the values. Null = default callback.
+ @property {string} axes.x.label - Text of the axis label. Set to "" to hide the label.
+ @property {int} axes.x.numTicks - Number of ticks to use by the default ticker.
+ @property {formatterCallback} axes.x.legendValueFormatter - Callback that formats the legend values. Null = default callback.
+ @property {formatterCallback} axes.x.tickerValuePreFormatter - Callback that formats the ticker values before ticks are created. 
+ @property {formatterCallback} axes.x.tickerValuePostFormatter - Callback that formats the ticker values after ticks are created.
+ @property {formatterCallback} axes.x.tickerLabelFormatter - Callback that formats the ticker labels. Null = default callback.
  @property {tickerCallback} axes.x.ticker - Callback that creates the ticks. Null = default callback.
  @property {formatterCallback} axes.x.valueFormatter - Callback that formats the axis labels. Null = default callback.
 
@@ -958,8 +958,12 @@ Options.prototype._evalOptions = function () {
  @property {bool} axes.y.inverted - If true the axis direction is inverted.
  @property {bool} axes.y.log - If true the values on the axis are logarithmically distributed.
  @property {int} axes.y.width - Width in pixels of the axis. 0 = automatic size.
- @property {int} axes.y.label - Text of the axis label. Set to "" to hide the label.
- @property {formatterCallback} axes.y.valueFormatter - Callback that formats the values. Null = default callback.
+ @property {string} axes.y.label - Text of the axis label. Set to "" to hide the label.
+ @property {int} axes.x.numTicks - Number of ticks to use by the default ticker.
+ @property {formatterCallback} axes.y.legendValueFormatter - Callback that formats the legend values. Null = default callback.
+ @property {formatterCallback} axes.y.tickerValuePreFormatter - Callback that formats the ticker values before ticks are created. 
+ @property {formatterCallback} axes.y.tickerValuePostFormatter - Callback that formats the ticker values after ticks are created.
+ @property {formatterCallback} axes.y.tickerLabelFormatter - Callback that formats the ticker labels. Null = default callback.
  @property {tickerCallback} axes.y.ticker - Callback that creates the ticks. Null = default callback.
  @property {formatterCallback} axes.y.valueFormatter - Callback that formats the axis labels. Null = default callback.
 
