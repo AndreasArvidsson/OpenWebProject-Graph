@@ -359,11 +359,11 @@ Axis.prototype.valueToPixel = function (value) {
 Axis.prototype.formatLegendValue = function (value) {
     //Use user given formatter.
     if (this._axis.legendValueFormatter) {
-        return this._axis.legendValueFormatter(value);
+        return this._axis.legendValueFormatter(value, defaultLegendValueFormatter);
     }
     //Use default value formatter.
     else {
-        return Static.round(value, 5);
+        return defaultLegendValueFormatter(value);
     }
 };
 
@@ -539,7 +539,7 @@ Axis.prototype._getDefaultTicks = function (isLog, minValue, maxValue, graphSize
     //Add user formatted labels.
     if (this._axis.tickerLabelFormatter) {
         for (let i = 0; i < ticks.length; ++i) {
-            ticks[i].label = this._axis.tickerLabelFormatter(ticks[i].value);
+            ticks[i].label = this._axis.tickerLabelFormatter(ticks[i].value, defaultTickerLabelFormatter);
         }
     }
     //Add default formatted labels.
@@ -551,6 +551,10 @@ Axis.prototype._getDefaultTicks = function (isLog, minValue, maxValue, graphSize
 
     return ticks;
 };
+
+function defaultLegendValueFormatter(value) {
+    return Static.round(value, 5);
+}
 
 function defaultTickerLabelFormatter(value) {
     if (value < 0) {
@@ -586,7 +590,7 @@ function defaultTickerLabelFormatter(value) {
             return Static.round(value / ranges[i].divider, 3).toString() + ranges[i].suffix;
         }
     }
-    return value.toString();
+    return Static.round(value, 3).toString();
 }
 
 //Get linear ticks.
