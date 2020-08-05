@@ -524,7 +524,9 @@ Axis.prototype._getDefaultTicks = function (isLog, minValue, maxValue, graphSize
         ticks = getDefaultLogTicks(minValue, maxValue);
     }
     else {
-        ticks = getDefaultLinTicks(minValue, maxValue, graphSize, labelSize);
+        //Max number of ticks.
+        const numTicks = this._axis.numTicks || (graphSize / (labelSize * 1.5));
+        ticks = getDefaultLinTicks(minValue, maxValue, numTicks);
     }
 
     //Post-format ticker values.
@@ -587,26 +589,12 @@ function defaultTickerLabelFormatter(value) {
     return value.toString();
 }
 
-//For a given value calculate the best step value.
-function getStepValue(isLog, value) {
-    const mult = isLog ? [1, 10] : [1, 2, 5, 10];
-    const exp = Math.pow(10, Math.floor(log10(value)));
-    for (let i = 0; i < mult.length; ++i) {
-        const newValue =  mult[i] * exp;
-        if (newValue >= value) {
-            return newValue;
-        }
-    }
-}
-
 //Get linear ticks.
-function getDefaultLinTicks(minValue, maxValue, graphSize, labelSize) {
-    //Max number of labels.
-    const maxNumLabels = graphSize / (labelSize * 1.5);
+function getDefaultLinTicks(minValue, maxValue, numTicks) {
     //Value range
     const range = maxValue - minValue;
     //Get ticker value step.
-    const step = getStepValue(false, range / maxNumLabels);
+    const step = getStepValue(false, range / numTicks);
 
     //Calculate start pos.
     let start = minValue;
@@ -637,30 +625,37 @@ function getDefaultLinTicks(minValue, maxValue, graphSize, labelSize) {
     return ticks;
 }
 
-/**
- * Modulus for float.
- * @public
- * @param {number} a
- * @param {number} b
- * @returns {number}
- */
-function modf(a, b) {
-    return a - Math.round(a / b) * b;
-}
-
 //Get logarithmic ticks.
 function getDefaultLogTicks(minValue, maxValue) {
     const ticks = [];
     let step = getStepValue(true, minValue);
+    //Make sure we always start at or before min value to get all the low end ticks.
+    if (step > minValue) {
+        step /= 10;
+    }
     for (; ;) {
         for (let i = 1; i < 10; ++i) {
-            let value = i * step;
+            const value = i * step;
             if (value > maxValue) {
                 return ticks;
             }
-            ticks.push({ value: secureFloat(value) });
+            if (value >= minValue) {
+                ticks.push({ value: secureFloat(value) });
+            }
         }
         step *= 10;
+    }
+}
+
+//For a given value calculate the best step value.
+function getStepValue(isLog, value) {
+    const mult = isLog ? [1, 10] : [1, 2, 5, 10];
+    const exp = Math.pow(10, Math.floor(log10(value)));
+    for (let i = 0; i < mult.length; ++i) {
+        const newValue = mult[i] * exp;
+        if (newValue >= value) {
+            return newValue;
+        }
     }
 }
 
@@ -674,6 +669,17 @@ export default Axis;
  */
 function secureFloat(val) {
     return parseFloat(val.toPrecision(15));
+}
+
+/**
+ * Modulus for float.
+ * @public
+ * @param {number} a
+ * @param {number} b
+ * @returns {number}
+ */
+function modf(a, b) {
+    return a - Math.round(a / b) * b;
 }
 
 const log10 = Static.log10;
