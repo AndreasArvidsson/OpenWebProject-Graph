@@ -489,10 +489,10 @@ Axis.prototype.valueToPixel = function (value) {
 Axis.prototype.formatLegendValue = function (value) {
   //Use user given formatter.
   if (this._axis.legendValueFormatter) {
-    return this._axis.legendValueFormatter(value);
+    return this._axis.legendValueFormatter(value, defaultLegendValueFormatter);
   } //Use default value formatter.
   else {
-      return _Static__WEBPACK_IMPORTED_MODULE_0__["default"].round(value, 5);
+      return defaultLegendValueFormatter(value);
     }
 };
 /**
@@ -667,7 +667,9 @@ Axis.prototype._getDefaultTicks = function (isLog, minValue, maxValue, graphSize
   if (isLog && maxValue - minValue >= 4 * minValue) {
     ticks = getDefaultLogTicks(minValue, maxValue);
   } else {
-    ticks = getDefaultLinTicks(minValue, maxValue, graphSize, labelSize);
+    //Max number of ticks.
+    const numTicks = this._axis.numTicks || graphSize / (labelSize * 1.5);
+    ticks = getDefaultLinTicks(minValue, maxValue, numTicks);
   } //Post-format ticker values.
 
 
@@ -680,7 +682,7 @@ Axis.prototype._getDefaultTicks = function (isLog, minValue, maxValue, graphSize
 
   if (this._axis.tickerLabelFormatter) {
     for (let i = 0; i < ticks.length; ++i) {
-      ticks[i].label = this._axis.tickerLabelFormatter(ticks[i].value);
+      ticks[i].label = this._axis.tickerLabelFormatter(ticks[i].value, defaultTickerLabelFormatter);
     }
   } //Add default formatted labels.
   else {
@@ -691,6 +693,10 @@ Axis.prototype._getDefaultTicks = function (isLog, minValue, maxValue, graphSize
 
   return ticks;
 };
+
+function defaultLegendValueFormatter(value) {
+  return _Static__WEBPACK_IMPORTED_MODULE_0__["default"].round(value, 5);
+}
 
 function defaultTickerLabelFormatter(value) {
   if (value < 0) {
@@ -759,31 +765,15 @@ function defaultTickerLabelFormatter(value) {
     }
   }
 
-  return value.toString();
-} //For a given value calculate the best step value.
-
-
-function getStepValue(isLog, value) {
-  const mult = isLog ? [1, 10] : [1, 2, 5, 10];
-  const exp = Math.floor(log10(value));
-
-  for (let i = 0; i < mult.length; ++i) {
-    const newValue = Math.pow(10, exp) * mult[i];
-
-    if (newValue >= value) {
-      return newValue;
-    }
-  }
+  return _Static__WEBPACK_IMPORTED_MODULE_0__["default"].round(value, 3).toString();
 } //Get linear ticks.
 
 
-function getDefaultLinTicks(minValue, maxValue, graphSize, labelSize) {
-  //Max number of labels.
-  const maxNumLabels = graphSize / (labelSize * 1.5); //Value range
-
+function getDefaultLinTicks(minValue, maxValue, numTicks) {
+  //Value range
   const range = maxValue - minValue; //Get ticker value step.
 
-  const step = getStepValue(false, range / maxNumLabels); //Calculate start pos.
+  const step = getStepValue(false, range / numTicks); //Calculate start pos.
 
   let start = minValue; //Make sure start is on a step position.
 
@@ -820,39 +810,47 @@ function getDefaultLinTicks(minValue, maxValue, graphSize, labelSize) {
   }
 
   return ticks;
-}
-/**
- * Modulus for float.
- * @public
- * @param {number} a
- * @param {number} b
- * @returns {number}
- */
-
-
-function modf(a, b) {
-  return a - Math.round(a / b) * b;
 } //Get logarithmic ticks.
 
 
 function getDefaultLogTicks(minValue, maxValue) {
   const ticks = [];
-  let step = getStepValue(true, minValue);
+  let step = getStepValue(true, minValue); //Make sure we always start at or before min value to get all the low end ticks.
+
+  if (step > minValue) {
+    step /= 10;
+  }
 
   for (;;) {
     for (let i = 1; i < 10; ++i) {
-      let value = i * step;
+      const value = i * step;
 
       if (value > maxValue) {
         return ticks;
       }
 
-      ticks.push({
-        value: secureFloat(value)
-      });
+      if (value >= minValue) {
+        ticks.push({
+          value: secureFloat(value)
+        });
+      }
     }
 
     step *= 10;
+  }
+} //For a given value calculate the best step value.
+
+
+function getStepValue(isLog, value) {
+  const mult = isLog ? [1, 10] : [1, 2, 5, 10];
+  const exp = Math.pow(10, Math.floor(log10(value)));
+
+  for (let i = 0; i < mult.length; ++i) {
+    const newValue = mult[i] * exp;
+
+    if (newValue >= value) {
+      return newValue;
+    }
   }
 }
 
@@ -866,6 +864,18 @@ function getDefaultLogTicks(minValue, maxValue) {
 
 function secureFloat(val) {
   return parseFloat(val.toPrecision(15));
+}
+/**
+ * Modulus for float.
+ * @public
+ * @param {number} a
+ * @param {number} b
+ * @returns {number}
+ */
+
+
+function modf(a, b) {
+  return a - Math.round(a / b) * b;
 }
 
 const log10 = _Static__WEBPACK_IMPORTED_MODULE_0__["default"].log10;
@@ -2628,6 +2638,7 @@ Options.getDefault = function () {
         log: false,
         height: 0,
         label: "",
+        numTicks: 0,
         legendValueFormatter: null,
         tickerValuePreFormatter: null,
         tickerValuePostFormatter: null,
@@ -2648,6 +2659,7 @@ Options.getDefault = function () {
         log: false,
         width: 0,
         label: "",
+        numTicks: 0,
         legendValueFormatter: null,
         tickerValuePreFormatter: null,
         tickerValuePostFormatter: null,
@@ -3257,35 +3269,18 @@ Options.prototype._evalOptions = function () {
           }
         }
 
+        set(axes[i] + ".numTicks");
+        evalType("int");
         set(axes[i] + ".legendValueFormatter");
-
-        if (!_Is__WEBPACK_IMPORTED_MODULE_1__["default"].isNull(obj)) {
-          evalType("function");
-        }
-
+        evalType("function|null");
         set(axes[i] + ".tickerValuePreFormatter");
-
-        if (!_Is__WEBPACK_IMPORTED_MODULE_1__["default"].isNull(obj)) {
-          evalType("function");
-        }
-
+        evalType("function|null");
         set(axes[i] + ".tickerValuePostFormatter");
-
-        if (!_Is__WEBPACK_IMPORTED_MODULE_1__["default"].isNull(obj)) {
-          evalType("function");
-        }
-
+        evalType("function|null");
         set(axes[i] + ".tickerLabelFormatter");
-
-        if (!_Is__WEBPACK_IMPORTED_MODULE_1__["default"].isNull(obj)) {
-          evalType("function");
-        }
-
+        evalType("function|null");
         set(axes[i] + ".ticker");
-
-        if (!_Is__WEBPACK_IMPORTED_MODULE_1__["default"].isNull(obj)) {
-          evalType("function");
-        }
+        evalType("function|null");
       }
     }
   }
@@ -3467,8 +3462,12 @@ Options.prototype._evalOptions = function () {
  @property {bool} axes.x.inverted - If true the axis direction is inverted.
  @property {bool} axes.x.log - If true the values on the axis are logarithmically distributed.
  @property {int} axes.x.height - Height in pixels of the axis. 0 = automatic size.
- @property {int} axes.x.label - Text of the axis label. Set to "" to hide the label.
- @property {formatterCallback} axes.x.valueFormatter - Callback that formats the values. Null = default callback.
+ @property {string} axes.x.label - Text of the axis label. Set to "" to hide the label.
+ @property {int} axes.x.numTicks - Number of ticks to use by the default ticker.
+ @property {formatterCallback} axes.x.legendValueFormatter - Callback that formats the legend values. Null = default callback.
+ @property {formatterCallback} axes.x.tickerValuePreFormatter - Callback that formats the ticker values before ticks are created. 
+ @property {formatterCallback} axes.x.tickerValuePostFormatter - Callback that formats the ticker values after ticks are created.
+ @property {formatterCallback} axes.x.tickerLabelFormatter - Callback that formats the ticker labels. Null = default callback.
  @property {tickerCallback} axes.x.ticker - Callback that creates the ticks. Null = default callback.
  @property {formatterCallback} axes.x.valueFormatter - Callback that formats the axis labels. Null = default callback.
 
@@ -3485,8 +3484,12 @@ Options.prototype._evalOptions = function () {
  @property {bool} axes.y.inverted - If true the axis direction is inverted.
  @property {bool} axes.y.log - If true the values on the axis are logarithmically distributed.
  @property {int} axes.y.width - Width in pixels of the axis. 0 = automatic size.
- @property {int} axes.y.label - Text of the axis label. Set to "" to hide the label.
- @property {formatterCallback} axes.y.valueFormatter - Callback that formats the values. Null = default callback.
+ @property {string} axes.y.label - Text of the axis label. Set to "" to hide the label.
+ @property {int} axes.x.numTicks - Number of ticks to use by the default ticker.
+ @property {formatterCallback} axes.y.legendValueFormatter - Callback that formats the legend values. Null = default callback.
+ @property {formatterCallback} axes.y.tickerValuePreFormatter - Callback that formats the ticker values before ticks are created. 
+ @property {formatterCallback} axes.y.tickerValuePostFormatter - Callback that formats the ticker values after ticks are created.
+ @property {formatterCallback} axes.y.tickerLabelFormatter - Callback that formats the ticker labels. Null = default callback.
  @property {tickerCallback} axes.y.ticker - Callback that creates the ticks. Null = default callback.
  @property {formatterCallback} axes.y.valueFormatter - Callback that formats the axis labels. Null = default callback.
 
