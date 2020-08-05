@@ -590,9 +590,9 @@ function defaultTickerLabelFormatter(value) {
 //For a given value calculate the best step value.
 function getStepValue(isLog, value) {
     const mult = isLog ? [1, 10] : [1, 2, 5, 10];
-    const exp = Math.floor(log10(value));
+    const exp = Math.pow(10, Math.floor(log10(value)));
     for (let i = 0; i < mult.length; ++i) {
-        const newValue = Math.pow(10, exp) * mult[i];
+        const newValue =  mult[i] * exp;
         if (newValue >= value) {
             return newValue;
         }
