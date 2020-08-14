@@ -65,7 +65,7 @@ Static.calculateSmothingValue = function (index, smoothing, data) {
 /**
  * Get the smoothing window indices.
  * @param {int} index - Index for central value.
- * @param {int} smoothing - Smootrhing value. Number of samples on each side of central value.
+ * @param {int} smoothing - Smoothing value. Number of samples on each side of central value.
  * @param {int} length - Length of data set.
  * @returns {undefined}
  */
@@ -76,7 +76,11 @@ Static.getSmoothingWindow = function (index, smoothing, length) {
     const diffToMax = length - 1 - index;
     //Shortest distance of min, max and smoothing window.
     const diff = Math.min(diffToMin, diffToMax, smoothing);
-    return { low: index - diff, high: index + diff, length: 2 * diff + 1 };
+    return {
+        low: index - diff,
+        high: index + diff,
+        length: 2 * diff + 1
+    };
 };
 
 /**

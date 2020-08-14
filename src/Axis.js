@@ -438,7 +438,7 @@ Axis.prototype._calculateXBounds = function () {
     //Calculate missing X-axis bounds from dataX values.
     if (this._options.graph.dataX.length) {
         if (this._options.debug) {
-            console.log("owp.graph DEBUG: X-bounds not set, but X-data is. Calculate X-bounds from X-data values.");
+            console.debug("owp.graph DEBUG: X-bounds not set, but X-data is. Calculate X-bounds from X-data values.");
         }
         let min = 4294967296;
         let max = -4294967296;
@@ -452,7 +452,7 @@ Axis.prototype._calculateXBounds = function () {
     //Calculate X-axis bounds from dataY length.
     else if (this._options.graph.dataY.length) {
         if (this._options.debug) {
-            console.log("owp.graph DEBUG: X-bounds and X-data not set, but Y-data is. Calculate X-bounds from Y-data length.");
+            console.debug("owp.graph DEBUG: X-bounds and X-data not set, but Y-data is. Calculate X-bounds from Y-data length.");
         }
         let max = 0;
         for (let i = 0; i < this._options.graph.dataY.length; ++i) {
@@ -461,7 +461,7 @@ Axis.prototype._calculateXBounds = function () {
         return { min: 1, max };
     }
     else if (this._options.debug) {
-        console.log("owp.graph DEBUG: X-bounds, X-data and Y-data not set. Can't calculate X-bounds.");
+        console.debug("owp.graph DEBUG: X-bounds, X-data and Y-data not set. Can't calculate X-bounds.");
         return;
     }
 };
@@ -475,7 +475,7 @@ Axis.prototype._calculateYBounds = function () {
     //Calculate Y-axis bounds from dataY values.
     if (this._options.graph.dataY.length) {
         if (this._options.debug) {
-            console.log("owp.graph DEBUG: Y-bounds not set, but Y-data is. Calculate Y-bounds from Y-data values.");
+            console.debug("owp.graph DEBUG: Y-bounds not set, but Y-data is. Calculate Y-bounds from Y-data values.");
         }
         let min = null;
         let max = null;
@@ -495,7 +495,7 @@ Axis.prototype._calculateYBounds = function () {
             : null;
     }
     else if (this._options.debug) {
-        console.log("owp.graph DEBUG: Y-bounds and Y-data not set. Can't calculate Y-bounds.");
+        console.debug("owp.graph DEBUG: Y-bounds and Y-data not set. Can't calculate Y-bounds.");
         return;
     }
 };

@@ -1,5 +1,6 @@
 import Static from "./Static";
 import Input from "./Input";
+import Simplify from "./Simplify";
 
 /** 
  * Interaction is a class that handles the user interaction for the Graph class.
@@ -165,13 +166,87 @@ Interaction.prototype._addResizeEvent = function () {
  * @private
  * @returns {object} Object containing callbacks.
  */
+// Interaction.prototype._addMouseTrackingEvents = function () {
+//     const self = this;
+//     const graph = this._graph;
+//     function mousemove(e) {
+//         if (self.mouseDown || self._resizing || !graph._axes.x.hasBounds() || e.offsetX < 0) {
+//             return;
+//         }
+//         const valueX = graph._axes.x.pixelToValue(e.offsetX);
+//         const values = [valueX];
+//         graph._canvas.interaction.clear();
+//         for (let i = 0; i < graph._options.graph.dataY.length; ++i) {
+//             const dataY = graph._options.graph.dataY[i];
+//             //Cant track unexisting values.
+//             if (!dataY.length) {
+//                 continue;
+//             }
+//             const getDataX = graph._options.getDataCallback("x", i);
+//             const res = Static.binarySearch(getDataX, dataY.length, valueX);
+//             let valueY;
+//             //Found exaxt X-value.
+//             if (res.found !== undefined) {
+//                 if (graph._options.graph.smoothing) {
+//                     valueY = Static.calculateSmothingValue(res.found, graph._options.graph.smoothing, dataY);
+//                 }
+//                 else {
+//                     valueY = dataY[res.found];
+//                 }
+//             }
+//             //Binary search returned min and max at same value without a found.
+//             //There is no matching value. Just abort.
+//             else if (res.min === res.max) {
+//                 continue;
+//             }
+//             //Calculate Y-value from min max coordinates.
+//             else {
+//                 const valueXMin = getDataX(res.min);
+//                 const valueXMax = getDataX(res.max);
+//                 const span = valueXMax - valueXMin;
+//                 const weightMin = 1 - (valueX - valueXMin) / span;
+//                 const weightMax = 1 - (valueXMax - valueX) / span;
+//                 let valueMin, valueMax;
+//                 if (graph._options.graph.smoothing) {
+//                     valueMin = Static.calculateSmothingValue(res.min, graph._options.graph.smoothing, dataY);
+//                     valueMax = Static.calculateSmothingValue(res.max, graph._options.graph.smoothing, dataY);
+//                 }
+//                 else {
+//                     valueMin = dataY[res.min];
+//                     valueMax = dataY[res.max];
+//                 }
+//                 valueY = valueMin * weightMin + valueMax * weightMax;
+//             }
+
+//             values[i + 1] = valueY;
+//             const pixelY = graph._axes.y.valueToPixel(valueY);
+
+//             if (isFinite(pixelY)) {
+//                 self._interactionData[i].moveTo(e.offsetX, pixelY);
+//             }
+//         }
+//         graph._renderLegend(values);
+//     }
+//     function mouseout() {
+//         if (!self.mouseDown) {
+//             graph._canvas.interaction.clear();
+//             graph._renderLegend();
+//         }
+//     }
+//     const canvas = this._graph._canvas.interaction.getCanvas();
+//     canvas.addEventListener("mousemove", mousemove);
+//     canvas.addEventListener("mouseout", mouseout);
+//     return { mousemove, mouseout };
+// };
+
 Interaction.prototype._addMouseTrackingEvents = function () {
     const self = this;
     const graph = this._graph;
-    function mouseMoveCallback(e) {
+    function mousemove(e) {
         if (self.mouseDown || self._resizing || !graph._axes.x.hasBounds() || e.offsetX < 0) {
             return;
         }
+        const useSimplify = graph._options.renderSimplify() && graph._options.graph.simplify > 0.1;
         const valueX = graph._axes.x.pixelToValue(e.offsetX);
         const values = [valueX];
         graph._canvas.interaction.clear();
@@ -181,12 +256,17 @@ Interaction.prototype._addMouseTrackingEvents = function () {
             if (!dataY.length) {
                 continue;
             }
-            const dataXCallback = graph._options.getDataCallback("x", i);
-            const res = Static.binarySearch(dataXCallback, dataY.length, valueX);
+            const getDataX = graph._options.getDataCallback("x", i);
+            const res = Static.binarySearch(getDataX, dataY.length, valueX);
             let valueY;
             //Found exaxt X-value.
             if (res.found !== undefined) {
-                if (graph._options.graph.smoothing) {
+                if (useSimplify) {
+                    const valueToPixelX = graph._axes.x.getValueToPixelCallback();
+                    const getDataY = graph._options.getDataCallback("y", i, res.min);
+                    valueY = Simplify.calculateValue(res.found, dataY.length, getDataX, getDataY, valueToPixelX, graph._options.graph.simplify, graph._options.graph.simplifyBy);
+                }
+                else if (graph._options.graph.smoothing) {
                     valueY = Static.calculateSmothingValue(res.found, graph._options.graph.smoothing, dataY);
                 }
                 else {
@@ -200,13 +280,20 @@ Interaction.prototype._addMouseTrackingEvents = function () {
             }
             //Calculate Y-value from min max coordinates.
             else {
-                const valueXMin = dataXCallback(res.min);
-                const valueXMax = dataXCallback(res.max);
+                const valueXMin = getDataX(res.min);
+                const valueXMax = getDataX(res.max);
                 const span = valueXMax - valueXMin;
                 const weightMin = 1 - (valueX - valueXMin) / span;
                 const weightMax = 1 - (valueXMax - valueX) / span;
                 let valueMin, valueMax;
-                if (graph._options.graph.smoothing) {
+                //Calculate using simplify.
+                if (useSimplify) {
+                    const valueToPixelX = graph._axes.x.getValueToPixelCallback();
+                    const getDataY = graph._options.getDataCallback("y", i, res.min);
+                    valueMin = Simplify.calculateValue(res.min, dataY.length, getDataX, getDataY, valueToPixelX, graph._options.graph.simplify, graph._options.graph.simplifyBy);
+                    valueMax = Simplify.calculateValue(res.max, dataY.length, getDataX, getDataY, valueToPixelX, graph._options.graph.simplify, graph._options.graph.simplifyBy);
+                }
+                else if (graph._options.graph.smoothing) {
                     valueMin = Static.calculateSmothingValue(res.min, graph._options.graph.smoothing, dataY);
                     valueMax = Static.calculateSmothingValue(res.max, graph._options.graph.smoothing, dataY);
                 }
@@ -226,17 +313,18 @@ Interaction.prototype._addMouseTrackingEvents = function () {
         }
         graph._renderLegend(values);
     }
-    function mouseOutCallback() {
+    function mouseout() {
         if (!self.mouseDown) {
             graph._canvas.interaction.clear();
             graph._renderLegend();
         }
     }
     const canvas = this._graph._canvas.interaction.getCanvas();
-    canvas.addEventListener("mousemove", mouseMoveCallback);
-    canvas.addEventListener("mouseout", mouseOutCallback);
-    return { mousemove: mouseMoveCallback, mouseout: mouseOutCallback };
+    canvas.addEventListener("mousemove", mousemove);
+    canvas.addEventListener("mouseout", mouseout);
+    return { mousemove, mouseout };
 };
+
 
 /**
  * Add zoom events.

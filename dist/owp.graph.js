@@ -566,7 +566,7 @@ Axis.prototype._calculateXBounds = function () {
   //Calculate missing X-axis bounds from dataX values.
   if (this._options.graph.dataX.length) {
     if (this._options.debug) {
-      console.log("owp.graph DEBUG: X-bounds not set, but X-data is. Calculate X-bounds from X-data values.");
+      console.debug("owp.graph DEBUG: X-bounds not set, but X-data is. Calculate X-bounds from X-data values.");
     }
 
     let min = 4294967296;
@@ -585,7 +585,7 @@ Axis.prototype._calculateXBounds = function () {
   } //Calculate X-axis bounds from dataY length.
   else if (this._options.graph.dataY.length) {
       if (this._options.debug) {
-        console.log("owp.graph DEBUG: X-bounds and X-data not set, but Y-data is. Calculate X-bounds from Y-data length.");
+        console.debug("owp.graph DEBUG: X-bounds and X-data not set, but Y-data is. Calculate X-bounds from Y-data length.");
       }
 
       let max = 0;
@@ -599,7 +599,7 @@ Axis.prototype._calculateXBounds = function () {
         max
       };
     } else if (this._options.debug) {
-      console.log("owp.graph DEBUG: X-bounds, X-data and Y-data not set. Can't calculate X-bounds.");
+      console.debug("owp.graph DEBUG: X-bounds, X-data and Y-data not set. Can't calculate X-bounds.");
       return;
     }
 };
@@ -614,7 +614,7 @@ Axis.prototype._calculateYBounds = function () {
   //Calculate Y-axis bounds from dataY values.
   if (this._options.graph.dataY.length) {
     if (this._options.debug) {
-      console.log("owp.graph DEBUG: Y-bounds not set, but Y-data is. Calculate Y-bounds from Y-data values.");
+      console.debug("owp.graph DEBUG: Y-bounds not set, but Y-data is. Calculate Y-bounds from Y-data values.");
     }
 
     let min = null;
@@ -639,7 +639,7 @@ Axis.prototype._calculateYBounds = function () {
       max
     } : null;
   } else if (this._options.debug) {
-    console.log("owp.graph DEBUG: Y-bounds and Y-data not set. Can't calculate Y-bounds.");
+    console.debug("owp.graph DEBUG: Y-bounds and Y-data not set. Can't calculate Y-bounds.");
     return;
   }
 };
@@ -1555,6 +1555,8 @@ function Input(attr) {
 __webpack_require__.r(__webpack_exports__);
 /* harmony import */ var _Static__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ./Static */ "./src/Static.js");
 /* harmony import */ var _Input__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ./Input */ "./src/Input.js");
+/* harmony import */ var _Simplify__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! ./Simplify */ "./src/Simplify.js");
+
 
 
 /** 
@@ -1741,16 +1743,88 @@ Interaction.prototype._addResizeEvent = function () {
  * @private
  * @returns {object} Object containing callbacks.
  */
+// Interaction.prototype._addMouseTrackingEvents = function () {
+//     const self = this;
+//     const graph = this._graph;
+//     function mousemove(e) {
+//         if (self.mouseDown || self._resizing || !graph._axes.x.hasBounds() || e.offsetX < 0) {
+//             return;
+//         }
+//         const valueX = graph._axes.x.pixelToValue(e.offsetX);
+//         const values = [valueX];
+//         graph._canvas.interaction.clear();
+//         for (let i = 0; i < graph._options.graph.dataY.length; ++i) {
+//             const dataY = graph._options.graph.dataY[i];
+//             //Cant track unexisting values.
+//             if (!dataY.length) {
+//                 continue;
+//             }
+//             const getDataX = graph._options.getDataCallback("x", i);
+//             const res = Static.binarySearch(getDataX, dataY.length, valueX);
+//             let valueY;
+//             //Found exaxt X-value.
+//             if (res.found !== undefined) {
+//                 if (graph._options.graph.smoothing) {
+//                     valueY = Static.calculateSmothingValue(res.found, graph._options.graph.smoothing, dataY);
+//                 }
+//                 else {
+//                     valueY = dataY[res.found];
+//                 }
+//             }
+//             //Binary search returned min and max at same value without a found.
+//             //There is no matching value. Just abort.
+//             else if (res.min === res.max) {
+//                 continue;
+//             }
+//             //Calculate Y-value from min max coordinates.
+//             else {
+//                 const valueXMin = getDataX(res.min);
+//                 const valueXMax = getDataX(res.max);
+//                 const span = valueXMax - valueXMin;
+//                 const weightMin = 1 - (valueX - valueXMin) / span;
+//                 const weightMax = 1 - (valueXMax - valueX) / span;
+//                 let valueMin, valueMax;
+//                 if (graph._options.graph.smoothing) {
+//                     valueMin = Static.calculateSmothingValue(res.min, graph._options.graph.smoothing, dataY);
+//                     valueMax = Static.calculateSmothingValue(res.max, graph._options.graph.smoothing, dataY);
+//                 }
+//                 else {
+//                     valueMin = dataY[res.min];
+//                     valueMax = dataY[res.max];
+//                 }
+//                 valueY = valueMin * weightMin + valueMax * weightMax;
+//             }
+//             values[i + 1] = valueY;
+//             const pixelY = graph._axes.y.valueToPixel(valueY);
+//             if (isFinite(pixelY)) {
+//                 self._interactionData[i].moveTo(e.offsetX, pixelY);
+//             }
+//         }
+//         graph._renderLegend(values);
+//     }
+//     function mouseout() {
+//         if (!self.mouseDown) {
+//             graph._canvas.interaction.clear();
+//             graph._renderLegend();
+//         }
+//     }
+//     const canvas = this._graph._canvas.interaction.getCanvas();
+//     canvas.addEventListener("mousemove", mousemove);
+//     canvas.addEventListener("mouseout", mouseout);
+//     return { mousemove, mouseout };
+// };
 
 
 Interaction.prototype._addMouseTrackingEvents = function () {
   const self = this;
   const graph = this._graph;
 
-  function mouseMoveCallback(e) {
+  function mousemove(e) {
     if (self.mouseDown || self._resizing || !graph._axes.x.hasBounds() || e.offsetX < 0) {
       return;
     }
+
+    const useSimplify = graph._options.renderSimplify() && graph._options.graph.simplify > 0.1;
 
     const valueX = graph._axes.x.pixelToValue(e.offsetX);
 
@@ -1765,13 +1839,19 @@ Interaction.prototype._addMouseTrackingEvents = function () {
         continue;
       }
 
-      const dataXCallback = graph._options.getDataCallback("x", i);
+      const getDataX = graph._options.getDataCallback("x", i);
 
-      const res = _Static__WEBPACK_IMPORTED_MODULE_0__["default"].binarySearch(dataXCallback, dataY.length, valueX);
+      const res = _Static__WEBPACK_IMPORTED_MODULE_0__["default"].binarySearch(getDataX, dataY.length, valueX);
       let valueY; //Found exaxt X-value.
 
       if (res.found !== undefined) {
-        if (graph._options.graph.smoothing) {
+        if (useSimplify) {
+          const valueToPixelX = graph._axes.x.getValueToPixelCallback();
+
+          const getDataY = graph._options.getDataCallback("y", i, res.min);
+
+          valueY = _Simplify__WEBPACK_IMPORTED_MODULE_2__["default"].calculateValue(res.found, dataY.length, getDataX, getDataY, valueToPixelX, graph._options.graph.simplify, graph._options.graph.simplifyBy);
+        } else if (graph._options.graph.smoothing) {
           valueY = _Static__WEBPACK_IMPORTED_MODULE_0__["default"].calculateSmothingValue(res.found, graph._options.graph.smoothing, dataY);
         } else {
           valueY = dataY[res.found];
@@ -1782,14 +1862,21 @@ Interaction.prototype._addMouseTrackingEvents = function () {
           continue;
         } //Calculate Y-value from min max coordinates.
         else {
-            const valueXMin = dataXCallback(res.min);
-            const valueXMax = dataXCallback(res.max);
+            const valueXMin = getDataX(res.min);
+            const valueXMax = getDataX(res.max);
             const span = valueXMax - valueXMin;
             const weightMin = 1 - (valueX - valueXMin) / span;
             const weightMax = 1 - (valueXMax - valueX) / span;
-            let valueMin, valueMax;
+            let valueMin, valueMax; //Calculate using simplify.
 
-            if (graph._options.graph.smoothing) {
+            if (useSimplify) {
+              const valueToPixelX = graph._axes.x.getValueToPixelCallback();
+
+              const getDataY = graph._options.getDataCallback("y", i, res.min);
+
+              valueMin = _Simplify__WEBPACK_IMPORTED_MODULE_2__["default"].calculateValue(res.min, dataY.length, getDataX, getDataY, valueToPixelX, graph._options.graph.simplify, graph._options.graph.simplifyBy);
+              valueMax = _Simplify__WEBPACK_IMPORTED_MODULE_2__["default"].calculateValue(res.max, dataY.length, getDataX, getDataY, valueToPixelX, graph._options.graph.simplify, graph._options.graph.simplifyBy);
+            } else if (graph._options.graph.smoothing) {
               valueMin = _Static__WEBPACK_IMPORTED_MODULE_0__["default"].calculateSmothingValue(res.min, graph._options.graph.smoothing, dataY);
               valueMax = _Static__WEBPACK_IMPORTED_MODULE_0__["default"].calculateSmothingValue(res.max, graph._options.graph.smoothing, dataY);
             } else {
@@ -1812,7 +1899,7 @@ Interaction.prototype._addMouseTrackingEvents = function () {
     graph._renderLegend(values);
   }
 
-  function mouseOutCallback() {
+  function mouseout() {
     if (!self.mouseDown) {
       graph._canvas.interaction.clear();
 
@@ -1822,11 +1909,11 @@ Interaction.prototype._addMouseTrackingEvents = function () {
 
   const canvas = this._graph._canvas.interaction.getCanvas();
 
-  canvas.addEventListener("mousemove", mouseMoveCallback);
-  canvas.addEventListener("mouseout", mouseOutCallback);
+  canvas.addEventListener("mousemove", mousemove);
+  canvas.addEventListener("mouseout", mouseout);
   return {
-    mousemove: mouseMoveCallback,
-    mouseout: mouseOutCallback
+    mousemove,
+    mouseout
   };
 };
 /**
@@ -2606,6 +2693,7 @@ Options.getDefault = function () {
       markerRadius: 0,
       smoothing: 0,
       simplify: 0.1,
+      simplifyBy: "minMax",
       fill: false,
       compositeOperation: "source-over"
     },
@@ -2757,6 +2845,26 @@ Options.prototype.setDefault = function () {
   this._isOk = true;
 };
 /**
+ * Returns true if markers are to be rendered.
+ * @public
+ */
+
+
+Options.prototype.renderMarkers = function () {
+  //Can't combine markers with filled lines.
+  return this.graph.markerRadius && (!this.graph.fill || !this.graph.lineWidth);
+};
+/**
+ * Returns true if simplify algorithm is to be used.
+ * @public
+ */
+
+
+Options.prototype.renderSimplify = function () {
+  //Can't combined simplified rendering with markers.
+  return this.graph.simplify && !this.renderMarkers();
+};
+/**
  * Callback function for getting data value for a given index.
  * Used instead of dataX[index] and dataY[index].
  * Has built in functionality for averaging. Implicit X-values and more.
@@ -2897,6 +3005,16 @@ Options.prototype._evalOptions = function () {
 
     if (!res) {
       error("\"" + obj + "\" is not of type: " + type);
+    }
+
+    return res;
+  }
+
+  function evalEnum(values) {
+    const res = values.indexOf(obj) > -1;
+
+    if (!res) {
+      error("\"" + obj + "\" is not of any type: [" + values.join(", ") + "].");
     }
 
     return res;
@@ -3120,6 +3238,12 @@ Options.prototype._evalOptions = function () {
 
     if (evalType("number")) {
       evalCond("obj >= 0 && obj <= 1");
+    }
+
+    set("graph.simplifyBy");
+
+    if (evalType("string")) {
+      evalEnum(["avg", "min", "max", "minMax"]);
     }
 
     set("graph.fill");
@@ -3430,6 +3554,7 @@ Options.prototype._evalOptions = function () {
  @property {int} graph.markerRadius - Width in pixels of the radius of the marker.
  @property {int} graph.smoothing - Number of samples on each side of the central value for the central moving average algorithm. 0 = disabled.
  @property {int} graph.simplify - Pixel tolerance for the simplification algorithm. 0 = disabled.
+ @property {int} graph.simplifyBy - Character of the simplification algorithm. 0 = minMax.
  @property {bool} graph.fill - If true the area under the graph will be filled.
  @property {string} graph.compositeOperation - Context global composit operation.
 
@@ -3532,6 +3657,291 @@ Options.prototype._evalOptions = function () {
 
 /***/ }),
 
+/***/ "./src/Simplify.js":
+/*!*************************!*\
+  !*** ./src/Simplify.js ***!
+  \*************************/
+/*! exports provided: default */
+/***/ (function(module, __webpack_exports__, __webpack_require__) {
+
+"use strict";
+__webpack_require__.r(__webpack_exports__);
+const Simplify = {
+  render: function (ctx, valueToPixelX, valueToPixelY, getDataX, getDataY, start, end, simplify, simplifyBy) {
+    switch (simplifyBy) {
+      case "avg":
+        renderAvg(ctx, valueToPixelX, valueToPixelY, getDataX, getDataY, start, end, simplify);
+        break;
+
+      case "min":
+        renderMin(ctx, valueToPixelX, valueToPixelY, getDataX, getDataY, start, end, simplify);
+        break;
+
+      case "max":
+        renderMax(ctx, valueToPixelX, valueToPixelY, getDataX, getDataY, start, end, simplify);
+        break;
+
+      case "minMax":
+        renderMinMax(ctx, valueToPixelX, valueToPixelY, getDataX, getDataY, start, end, simplify);
+        break;
+    }
+  },
+  calculateValue: function (index, length, getDataX, getDataY, valueToPixelX, simplify, simplifyBy) {
+    switch (simplifyBy) {
+      case "avg":
+        return calculateAvgValue(index, length, getDataX, getDataY, valueToPixelX, simplify);
+
+      case "min":
+        return calculateMinValue(index, length, getDataX, getDataY, valueToPixelX, simplify);
+
+      case "max":
+        return calculateMaxValue(index, length, getDataX, getDataY, valueToPixelX, simplify);
+
+      case "minMax":
+        return calculateMinMaxValue(index, length, getDataX, getDataY, valueToPixelX, simplify);
+    }
+  }
+};
+/* harmony default export */ __webpack_exports__["default"] = (Simplify);
+
+function renderAvg(ctx, valueToPixelX, valueToPixelY, getDataX, getDataY, start, end, simplify) {
+  const abs = Math.abs;
+  let oldX = valueToPixelX(getDataX(start));
+  let sum = getDataY(start);
+  let count = 1; //We have already counted first value;
+
+  ++start;
+
+  for (; start <= end; ++start) {
+    const newX = valueToPixelX(getDataX(start));
+
+    if (abs(newX - oldX) < simplify) {
+      sum += getDataY(start);
+      ++count;
+    } else {
+      ctx.lineTo(oldX, valueToPixelY(sum / count));
+      oldX = newX;
+      sum = getDataY(start);
+      count = 1;
+    }
+  } //Needed to add the last step.
+
+
+  ctx.lineTo(oldX, valueToPixelY(sum / count));
+}
+
+function renderMin(ctx, valueToPixelX, valueToPixelY, getDataX, getDataY, start, end, simplify) {
+  const abs = Math.abs;
+  const min = Math.min;
+  let oldX = valueToPixelX(getDataX(start));
+  let minVal = getDataY(start); //We have already counted first value;
+
+  ++start;
+
+  for (; start <= end; ++start) {
+    const newX = valueToPixelX(getDataX(start));
+
+    if (abs(newX - oldX) < simplify) {
+      minVal = min(minVal, getDataY(start));
+    } else {
+      ctx.lineTo(oldX, valueToPixelY(minVal));
+      oldX = newX;
+      minVal = getDataY(start);
+    }
+  } //Needed to add the last step.
+
+
+  ctx.lineTo(oldX, valueToPixelY(minVal));
+}
+
+function renderMax(ctx, valueToPixelX, valueToPixelY, getDataX, getDataY, start, end, simplify) {
+  const abs = Math.abs;
+  const max = Math.max;
+  let oldX = valueToPixelX(getDataX(start));
+  let maxVal = getDataY(start); //We have already counted first value;
+
+  ++start;
+
+  for (; start <= end; ++start) {
+    const newX = valueToPixelX(getDataX(start));
+
+    if (abs(newX - oldX) < simplify) {
+      maxVal = max(maxVal, getDataY(start));
+    } else {
+      ctx.lineTo(oldX, valueToPixelY(maxVal));
+      oldX = newX;
+      maxVal = getDataY(start);
+    }
+  } //Needed to add the last step.
+
+
+  ctx.lineTo(oldX, valueToPixelY(maxVal));
+}
+
+function renderMinMax(ctx, valueToPixelX, valueToPixelY, getDataX, getDataY, start, end, simplify) {
+  const abs = Math.abs;
+  const min = Math.min;
+  const max = Math.max;
+  let oldX = valueToPixelX(getDataX(start));
+  let minVal = getDataY(start);
+  let maxVal = minVal; //We have already counted first value;
+
+  ++start;
+
+  for (; start <= end; ++start) {
+    const newX = valueToPixelX(getDataX(start));
+
+    if (abs(newX - oldX) < simplify) {
+      const valueY = getDataY(start);
+      minVal = min(minVal, valueY);
+      maxVal = max(maxVal, valueY);
+    } else {
+      ctx.lineTo(oldX, valueToPixelY(minVal)); //Only add the second point if it differs from the first.
+
+      if (minVal !== maxVal) {
+        ctx.lineTo(oldX, valueToPixelY(maxVal));
+      }
+
+      oldX = newX;
+      minVal = getDataY(start);
+      maxVal = minVal;
+    }
+  } //Needed to add the last step.
+
+
+  ctx.lineTo(oldX, valueToPixelY(minVal));
+
+  if (minVal !== maxVal) {
+    ctx.lineTo(oldX, valueToPixelY(maxVal));
+  }
+}
+
+function calculateAvgValue(index, length, getDataX, getDataY, valueToPixelX, simplify) {
+  const abs = Math.abs;
+  const oldX = valueToPixelX(getDataX(index));
+  let sum = getDataY(index);
+  let count = 1;
+
+  for (let i = index + 1; i < length; ++i) {
+    const newX = valueToPixelX(getDataX(i));
+
+    if (abs(newX - oldX) < simplify) {
+      sum += getDataY(i);
+      ++count;
+    } else {
+      break;
+    }
+  }
+
+  for (let i = index - 1; i > -1; --i) {
+    const newX = valueToPixelX(getDataX(i));
+
+    if (abs(newX - oldX) < simplify) {
+      sum += getDataY(i);
+      ++count;
+    } else {
+      break;
+    }
+  }
+
+  return sum / count;
+}
+
+function calculateMinValue(index, length, getDataX, getDataY, valueToPixelX, simplify) {
+  const abs = Math.abs;
+  const min = Math.min;
+  const oldX = valueToPixelX(getDataX(index));
+  let minVal = getDataY(index);
+
+  for (let i = index + 1; i < length; ++i) {
+    const newX = valueToPixelX(getDataX(i));
+
+    if (abs(newX - oldX) < simplify) {
+      minVal = min(minVal, getDataY(i));
+    } else {
+      break;
+    }
+  }
+
+  for (let i = index - 1; i > -1; --i) {
+    const newX = valueToPixelX(getDataX(i));
+
+    if (abs(newX - oldX) < simplify) {
+      minVal = min(minVal, getDataY(i));
+    } else {
+      break;
+    }
+  }
+
+  return minVal;
+}
+
+function calculateMaxValue(index, length, getDataX, getDataY, valueToPixelX, simplify) {
+  const abs = Math.abs;
+  const max = Math.max;
+  const oldX = valueToPixelX(getDataX(index));
+  let maxVal = getDataY(index);
+
+  for (let i = index + 1; i < length; ++i) {
+    const newX = valueToPixelX(getDataX(i));
+
+    if (abs(newX - oldX) < simplify) {
+      maxVal = max(maxVal, getDataY(i));
+    } else {
+      break;
+    }
+  }
+
+  for (let i = index - 1; i > -1; --i) {
+    const newX = valueToPixelX(getDataX(i));
+
+    if (abs(newX - oldX) < simplify) {
+      maxVal = max(maxVal, getDataY(i));
+    } else {
+      break;
+    }
+  }
+
+  return maxVal;
+}
+
+function calculateMinMaxValue(index, length, getDataX, getDataY, valueToPixelX, simplify) {
+  const abs = Math.abs;
+  const min = Math.min;
+  const max = Math.max;
+  const oldX = valueToPixelX(getDataX(index));
+  let minVal = getDataY(index);
+  let maxVal = minVal;
+
+  for (let i = index + 1; i < length; ++i) {
+    const newX = valueToPixelX(getDataX(i));
+
+    if (abs(newX - oldX) < simplify) {
+      const value = getDataY(i);
+      minVal = min(minVal, value);
+      maxVal = max(maxVal, value);
+    } else {
+      break;
+    }
+  }
+
+  for (let i = index - 1; i > -1; --i) {
+    const newX = valueToPixelX(getDataX(i));
+
+    if (abs(newX - oldX) < simplify) {
+      const value = getDataY(i);
+      minVal = min(minVal, value);
+      maxVal = max(maxVal, value);
+    } else {
+      break;
+    }
+  }
+
+  return abs(minVal) > maxVal ? minVal : maxVal;
+}
+
+/***/ }),
+
 /***/ "./src/Static.js":
 /*!***********************!*\
   !*** ./src/Static.js ***!
@@ -3615,7 +4025,7 @@ Static.calculateSmothingValue = function (index, smoothing, data) {
 /**
  * Get the smoothing window indices.
  * @param {int} index - Index for central value.
- * @param {int} smoothing - Smootrhing value. Number of samples on each side of central value.
+ * @param {int} smoothing - Smoothing value. Number of samples on each side of central value.
  * @param {int} length - Length of data set.
  * @returns {undefined}
  */
@@ -3739,6 +4149,7 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony import */ var _Static__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(/*! ./Static */ "./src/Static.js");
 /* harmony import */ var _Options__WEBPACK_IMPORTED_MODULE_5__ = __webpack_require__(/*! ./Options */ "./src/Options.js");
 /* harmony import */ var _Is__WEBPACK_IMPORTED_MODULE_6__ = __webpack_require__(/*! ./Is */ "./src/Is.js");
+/* harmony import */ var _Simplify__WEBPACK_IMPORTED_MODULE_7__ = __webpack_require__(/*! ./Simplify */ "./src/Simplify.js");
 /*
 * @author Andreas Arvidsson
  * https://github.com/AndreasArvidsson/OpenWebProject-graph
@@ -3746,6 +4157,7 @@ __webpack_require__.r(__webpack_exports__);
 if (!window.HTMLCanvasElement || !window.CanvasRenderingContext2D) {
   throw Error("owp.graph ERROR: Your browser does not support the HTML5 Canvas.");
 }
+
 
 
 
@@ -3838,6 +4250,8 @@ Graph.prototype.setOptions = function (options) {
     this._initLegend();
 
     this._plot();
+  } else {
+    console.error("owp.graph ERROR: Can't plot: Invalid options.");
   }
 };
 /* ********** PRIVATE ********** */
@@ -4007,11 +4421,6 @@ Graph.prototype._renderLegend = function (values) {
 
 
 Graph.prototype._plot = function () {
-  if (!this._options.isOk()) {
-    console.error("owp.graph ERROR: Can't plot: Invalid options.");
-    return;
-  }
-
   if (this._options.debug) {
     console.time("owp.graph DEBUG: Plot time");
   } //If graph size has not yet been calculated. Do it.
@@ -4053,11 +4462,11 @@ Graph.prototype._plot = function () {
 
       this._interaction.render();
     } else if (this._options.debug) {
-      console.log("owp.graph DEBUG: No data set available. Plotting available features.");
+      console.debug("owp.graph DEBUG: No data set available. Plotting available features.");
     }
   } //Has neither bounds or data.
   else if (this._options.debug) {
-      console.log("owp.graph DEBUG: No bounds or data set available. Plotting available features.");
+      console.debug("owp.graph DEBUG: No bounds or data set available. Plotting available features.");
     }
 
   if (this._options.debug) {
@@ -4350,12 +4759,13 @@ Graph.prototype._renderHighlight = function () {
 
 Graph.prototype._renderGraph = function () {
   if (this._options.debug && this._options.graph.smoothing > 1) {
-    console.log("owp.graph DEBUG: Smoothed rendering: " + this._options.graph.smoothing);
+    console.debug("owp.graph DEBUG: Smoothed rendering: " + this._options.graph.smoothing);
   }
 
   if (this._options.debug && this._options.graph.simplify) {
-    console.log("owp.graph DEBUG: Simplify rendering: " + this._options.graph.simplify);
-  }
+    console.debug(`owp.graph DEBUG: Simplify rendering: ${this._options.graph.simplify} ${this._options.graph.simplifyBy}`);
+  } //Clear old data so we can draw new.
+
 
   this._canvas.graph.clear(); //Get value to pixel functions.
 
@@ -4371,10 +4781,7 @@ Graph.prototype._renderGraph = function () {
 
 
   const fillGraph = this._options.graph.fill;
-  const markerRadius = this._options.graph.markerRadius;
-  const renderLine = !!this._options.graph.lineWidth; //Cant combine markers with filled lines.
-
-  const renderMarker = !!markerRadius && (!fillGraph || !renderLine); //Get canvas context directly for increased performance.
+  const renderLine = !!this._options.graph.lineWidth; //Get canvas context directly for increased performance.
 
   const ctx = this._canvas.graph.getContext();
 
@@ -4397,105 +4804,88 @@ Graph.prototype._renderGraph = function () {
 
     ctx.beginPath(); //Render simplified data set. Can't combine with markers
 
-    if (this._options.graph.simplify && length > this._canvas.graph.getContentWidth() && !renderMarker) {
-      const simplify = this._options.graph.simplify;
-      let oldX = valueToPixelX(getDataX(start));
-      let minVal = getDataY(start);
-      let maxVal = minVal;
-      let newX, y;
-      ++start;
-
-      for (; start <= end; ++start) {
-        newX = valueToPixelX(getDataX(start));
-
-        if (Math.abs(oldX - newX) <= simplify) {
-          y = getDataY(start);
-          minVal = Math.min(minVal, y);
-          maxVal = Math.max(maxVal, y);
-          continue;
-        }
-
-        ctx.lineTo(oldX, valueToPixelY(minVal)); //Only add the second point if it differs from the first.
-
-        if (minVal !== maxVal) {
-          ctx.lineTo(oldX, valueToPixelY(maxVal));
-        }
-
-        oldX = newX;
-        minVal = getDataY(start);
-        maxVal = minVal;
-      } //Needed to add the last step.
-
-
-      ctx.lineTo(oldX, valueToPixelY(minVal));
-
-      if (minVal !== maxVal) {
-        ctx.lineTo(oldX, valueToPixelY(maxVal));
-      }
+    if (this._options.renderSimplify()) {
+      _Simplify__WEBPACK_IMPORTED_MODULE_7__["default"].render(ctx, valueToPixelX, valueToPixelY, getDataX, getDataY, start, end, this._options.graph.simplify, this._options.graph.simplifyBy);
     } //Render full data set.
     else {
-        const circleAngle = 2 * Math.PI; //Render line and markers
-
-        if (renderLine && renderMarker) {
-          for (; start <= end; ++start) {
-            const x = valueToPixelX(getDataX(start));
-            const y = valueToPixelY(getDataY(start));
-            ctx.lineTo(x, y);
-            ctx.moveTo(x + markerRadius, y);
-            ctx.arc(x, y, markerRadius, 0, circleAngle);
-            ctx.moveTo(x, y);
-          }
-        } //Render only line
-        else if (renderLine) {
-            for (; start <= end; ++start) {
-              ctx.lineTo(valueToPixelX(getDataX(start)), valueToPixelY(getDataY(start)));
-            }
-          } //Render only markers
-          else if (renderMarker) {
-              for (; start <= end; ++start) {
-                const x = valueToPixelX(getDataX(start));
-                const y = valueToPixelY(getDataY(start));
-                ctx.moveTo(x + markerRadius, y);
-                ctx.arc(x, y, markerRadius, 0, circleAngle);
-              }
-            }
+        this._renderFull(ctx, valueToPixelX, valueToPixelY, getDataX, getDataY, start, end, renderLine);
       } //Fill graph.
 
 
     if (fillGraph) {
-      if (renderLine) {
-        if (this._options.axes.x.inverted) {
-          ctx.lineTo(0, this._canvas.graph.getContentHeight());
-          ctx.lineTo(this._canvas.graph.getContentWidth(), this._canvas.graph.getContentHeight());
-        } else {
-          ctx.lineTo(this._canvas.graph.getContentWidth() * this._canvas.graph.getRatio(), this._canvas.graph.getContentHeight() * this._canvas.graph.getRatio());
-          ctx.lineTo(0, this._canvas.graph.getContentHeight() * this._canvas.graph.getRatio());
-        }
-
-        ctx.closePath();
-      }
-
-      ctx.fillStyle = this._options.getColor(i + 1);
-      ctx.fill();
+      this._renderFill(ctx, i, renderLine);
     } //Stroke line.
     else {
-        //Set dashed options
-        if (this._options.graph.dashed[i]) {
-          let pattern = this._options.graph.dashed[i];
-
-          if (pattern === true) {
-            pattern = [5, 8];
-          }
-
-          ctx.setLineDash(pattern);
-        } else {
-          ctx.setLineDash([]);
-        }
-
-        ctx.strokeStyle = this._options.getColor(i + 1);
-        ctx.stroke();
+        this._renderStroke(ctx, i);
       }
   }
+};
+
+Graph.prototype._renderFull = function (ctx, valueToPixelX, valueToPixelY, getDataX, getDataY, start, end, renderLine) {
+  const circleAngle = 2 * Math.PI;
+
+  const renderMarkers = this._options.renderMarkers();
+
+  const markerRadius = this._options.graph.markerRadius; //Render line and markers
+
+  if (renderLine && renderMarkers) {
+    for (; start <= end; ++start) {
+      const x = valueToPixelX(getDataX(start));
+      const y = valueToPixelY(getDataY(start));
+      ctx.lineTo(x, y);
+      ctx.moveTo(x + markerRadius, y);
+      ctx.arc(x, y, markerRadius, 0, circleAngle);
+      ctx.moveTo(x, y);
+    }
+  } //Render only line
+  else if (renderLine) {
+      for (; start <= end; ++start) {
+        ctx.lineTo(valueToPixelX(getDataX(start)), valueToPixelY(getDataY(start)));
+      }
+    } //Render only markers
+    else if (renderMarkers) {
+        for (; start <= end; ++start) {
+          const x = valueToPixelX(getDataX(start));
+          const y = valueToPixelY(getDataY(start));
+          ctx.moveTo(x + markerRadius, y);
+          ctx.arc(x, y, markerRadius, 0, circleAngle);
+        }
+      }
+};
+
+Graph.prototype._renderFill = function (ctx, channelIndex, renderLine) {
+  if (renderLine) {
+    if (this._options.axes.x.inverted) {
+      ctx.lineTo(0, this._canvas.graph.getContentHeight());
+      ctx.lineTo(this._canvas.graph.getContentWidth(), this._canvas.graph.getContentHeight());
+    } else {
+      ctx.lineTo(this._canvas.graph.getContentWidth() * this._canvas.graph.getRatio(), this._canvas.graph.getContentHeight() * this._canvas.graph.getRatio());
+      ctx.lineTo(0, this._canvas.graph.getContentHeight() * this._canvas.graph.getRatio());
+    }
+
+    ctx.closePath();
+  }
+
+  ctx.fillStyle = this._options.getColor(channelIndex + 1);
+  ctx.fill();
+};
+
+Graph.prototype._renderStroke = function (ctx, channelIndex) {
+  //Set dashed options
+  if (this._options.graph.dashed[channelIndex]) {
+    let pattern = this._options.graph.dashed[channelIndex];
+
+    if (pattern === true) {
+      pattern = [5, 8];
+    }
+
+    ctx.setLineDash(pattern);
+  } else {
+    ctx.setLineDash([]);
+  }
+
+  ctx.strokeStyle = this._options.getColor(channelIndex + 1);
+  ctx.stroke();
 };
 /**
  * Get offset for the given paramters.

@@ -122,6 +122,35 @@ function init() {
     options.axes.y.tickerValuePostFormatter = value => value / 2;
     options.axes.y.tickerLabelFormatter = value => value + "dB";
     addGraph(options, true);
+
+    renderSimplify();
+}
+
+function renderSimplify() {
+    const options = getOptions("Simplify 0.1 minMax");
+    options.axes.x.log = true;
+    options.graph.dataY = Graph.createDummyData(2 ** 15, "float");
+    const graph = addGraph(options, true);
+    const levels = [0.1, 0.5, 1];
+    const types = ["minMax", "avg", "min", "max"];
+    let i = 0;
+    let j = 0;
+    function upd() {
+        ++i;
+        if (i === levels.length) {
+            i = 0;
+            ++j;
+            if (j === types.length) {
+                j = 0;
+            }
+        }
+        options.graph.simplify = levels[i];
+        options.graph.simplifyBy = types[j];
+        options.title.label = `Simplify ${options.graph.simplify} ${options.graph.simplifyBy}`;
+        graph.setOptions(options);
+        setTimeout(upd, 2000);
+    }
+    setTimeout(upd, 2000);
 }
 
 function addGraph(options, isFloat, legendId) {
@@ -136,7 +165,7 @@ function addGraph(options, isFloat, legendId) {
     div.className = "graph-divs";
     root.appendChild(div);
 
-    Graph(div, options);
+    const res = Graph(div, options);
 
     const button = document.createElement("button");
     button.className = "btn btn-primary";
@@ -145,10 +174,12 @@ function addGraph(options, isFloat, legendId) {
 
     let json;
     if (isFloat !== undefined) {
+        const dataY = options.graph.dataY;
         options.graph.dataY = [];
         const dummyDataParams = isFloat ? dataYFloat[0].length + ', "float"' : dataYInt[0].length + ', "int"';
         json = JSON.stringify(options, null, 4);
         json = json.replace("[]", "Graph.createDummyData(" + dummyDataParams + ")");
+        options.graph.dataY = dataY;
     }
     else {
         json = JSON.stringify(options, null, 4);
@@ -170,6 +201,8 @@ function addGraph(options, isFloat, legendId) {
             button.innerText = "Show code";
         }
     });
+
+    return res;
 }
 
 export default { init };

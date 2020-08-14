@@ -123,6 +123,7 @@ Options.getDefault = function () {
             markerRadius: 0,
             smoothing: 0,
             simplify: 0.1,
+            simplifyBy: "minMax",
             fill: false,
             compositeOperation: "source-over"
         },
@@ -255,6 +256,24 @@ Options.prototype.setDefault = function () {
 };
 
 /**
+ * Returns true if markers are to be rendered.
+ * @public
+ */
+Options.prototype.renderMarkers = function() {
+    //Can't combine markers with filled lines.
+    return this.graph.markerRadius && (!this.graph.fill || !this.graph.lineWidth);
+}
+
+/**
+ * Returns true if simplify algorithm is to be used.
+ * @public
+ */
+Options.prototype.renderSimplify = function() {
+    //Can't combined simplified rendering with markers.
+    return this.graph.simplify && !this.renderMarkers();
+}
+
+/**
  * Callback function for getting data value for a given index.
  * Used instead of dataX[index] and dataY[index].
  * Has built in functionality for averaging. Implicit X-values and more.
@@ -382,6 +401,13 @@ Options.prototype._evalOptions = function () {
         const res = Is.isOfType(obj, type);
         if (!res) {
             error("\"" + obj + "\" is not of type: " + type);
+        }
+        return res;
+    }
+    function evalEnum(values) {
+        const res = values.indexOf(obj) > -1;
+        if (!res) {
+            error("\"" + obj + "\" is not of any type: [" + values.join(", ") + "].");
         }
         return res;
     }
@@ -599,6 +625,11 @@ Options.prototype._evalOptions = function () {
         set("graph.simplify");
         if (evalType("number")) {
             evalCond("obj >= 0 && obj <= 1");
+        }
+
+        set("graph.simplifyBy");
+        if (evalType("string")) {
+            evalEnum(["avg", "min", "max", "minMax"]);
         }
 
         set("graph.fill");
@@ -904,6 +935,7 @@ Options.prototype._evalOptions = function () {
  @property {int} graph.markerRadius - Width in pixels of the radius of the marker.
  @property {int} graph.smoothing - Number of samples on each side of the central value for the central moving average algorithm. 0 = disabled.
  @property {int} graph.simplify - Pixel tolerance for the simplification algorithm. 0 = disabled.
+ @property {int} graph.simplifyBy - Character of the simplification algorithm. 0 = minMax.
  @property {bool} graph.fill - If true the area under the graph will be filled.
  @property {string} graph.compositeOperation - Context global composit operation.
 

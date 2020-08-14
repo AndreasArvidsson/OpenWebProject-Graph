@@ -1,15 +1,15 @@
 module.exports = {
-    "extends": [
+    extends: [
         "eslint:recommended"
     ],
-    "parser": "babel-eslint",
-    "env": {
-        "browser": true, //window
-        "amd": true, //require
-        "node": true, //module
-        "es6": true //Promise
+    parser: "babel-eslint",
+    env: {
+        browser: true, //window
+        amd: true, //require
+        node: true, //module
+        es6: true //Promise
     },
-    "rules": {
+    rules: {
         "no-console": "off"
     }
 };
