@@ -1,10 +1,7 @@
 import Graph from "../src/index";
 
 const root = document.getElementById("root");
-const intSize = 200;
-const floatSize = 200;
-const dataYInt = Graph.createDummyData(intSize, "int");
-const dataYFloat = Graph.createDummyData(floatSize, "float");
+const dataY = Graph.createDummyData(200);
 const simpleDataX = [[100, 200, 400]];
 const simpleDataY = [[1, 4, 2], [2, 3, 0.5]];
 
@@ -23,7 +20,7 @@ function getOptions(title) {
         },
         graph: {
             names: ["x", "Left", "Right"],
-            dataY: dataYFloat
+            dataY
         }
     };
 }
@@ -34,23 +31,23 @@ function init() {
     options = getOptions("Simple example");
     options.graph.dataX = simpleDataX;
     options.graph.dataY = simpleDataY;
-    addGraph(options, undefined);
+    addGraph(options, true);
 
     options = getOptions("Standard line plot with two data sets");
-    addGraph(options, true);
+    addGraph(options);
 
     options = getOptions("Smoothing enabled");
     options.graph.smoothing = 5;
     options.interaction = { smoothing: true };
-    addGraph(options, true);
+    addGraph(options);
 
     options = getOptions("Fill enabled");
     options.graph.fill = true;
-    addGraph(options, true);
+    addGraph(options);
 
     options = getOptions("Dashed line");
     options.graph.dashed = [[1], true];
-    addGraph(options, true);
+    addGraph(options);
 
     options = getOptions("Markers");
     delete options.graph.dataY;
@@ -65,7 +62,7 @@ function init() {
         location: "right",
         align: "left"
     };
-    addGraph(options, true);
+    addGraph(options);
 
     options = getOptions("External legend");
     const legendId = "legendId";
@@ -73,10 +70,9 @@ function init() {
         location: legendId,
         align: "left"
     };
-    addGraph(options, true, legendId);
+    addGraph(options, false, legendId);
 
-    options = getOptions("Logarithmic integer graph");
-    options.graph.dataY = dataYInt;
+    options = getOptions("Logarithmic graph");
     options.axes.x.log = true;
     addGraph(options, false);
 
@@ -89,11 +85,11 @@ function init() {
 
     options = getOptions("Highlighting enabled");
     options.highlight = bounds;
-    addGraph(options, true);
+    addGraph(options);
 
     options = getOptions("Zoom enabled");
     options.zoom = bounds;
-    addGraph(options, true);
+    addGraph(options);
 
     options = getOptions("Bounds set");
     options.axes.x.bounds = {
@@ -104,13 +100,13 @@ function init() {
         min: bounds.yMin,
         max: bounds.yMax
     };
-    addGraph(options, true);
+    addGraph(options);
 
     options = getOptions("Spinner enabled");
     options.spinner = {
         show: true
     };
-    addGraph(options, true);
+    addGraph(options);
 
     options = getOptions("Custom formatters enabled");
     options.axes.x.legendValueFormatter = value => value + "s";
@@ -121,7 +117,7 @@ function init() {
     options.axes.y.tickerValuePreFormatter = value => value * 2;
     options.axes.y.tickerValuePostFormatter = value => value / 2;
     options.axes.y.tickerLabelFormatter = value => value + "dB";
-    addGraph(options, true);
+    addGraph(options);
 
     renderSimplify();
 }
@@ -130,7 +126,7 @@ function renderSimplify() {
     const options = getOptions("Simplify 0.1 minMax");
     options.axes.x.log = true;
     options.graph.dataY = Graph.createDummyData(2 ** 15, "float");
-    const graph = addGraph(options, true);
+    const graph = addGraph(options);
     const levels = [0.1, 0.5, 1];
     const types = ["minMax", "avg", "min", "max"];
     let i = 0;
@@ -153,7 +149,7 @@ function renderSimplify() {
     setTimeout(upd, 2000);
 }
 
-function addGraph(options, isFloat, legendId) {
+function addGraph(options, keepData, legendId) {
     if (legendId) {
         const legendDiv = document.createElement("div");
         legendDiv.className = "legendDiv";
@@ -173,16 +169,15 @@ function addGraph(options, isFloat, legendId) {
     root.appendChild(button);
 
     let json;
-    if (isFloat !== undefined) {
-        const dataY = options.graph.dataY;
-        options.graph.dataY = [];
-        const dummyDataParams = isFloat ? dataYFloat[0].length + ', "float"' : dataYInt[0].length + ', "int"';
+    if (keepData) {
         json = JSON.stringify(options, null, 4);
-        json = json.replace("[]", "Graph.createDummyData(" + dummyDataParams + ")");
-        options.graph.dataY = dataY;
     }
     else {
+        const dataY = options.graph.dataY;
+        options.graph.dataY = [];
         json = JSON.stringify(options, null, 4);
+        json = json.replace("[]", `Graph.createDummyData(${dataY.length})`);
+        options.graph.dataY = dataY;
     }
 
     const code = document.createElement("pre");
