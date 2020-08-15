@@ -14,7 +14,7 @@ import Interaction from "./Interaction";
 import Static from "./Static";
 import Options from "./Options";
 import Is from "./Is";
-import Simplify from "./Simplify";
+import Callbacks from "./Callbacks";
 
 /** 
  * The Graph class is a 2D graph plotter.
@@ -546,126 +546,21 @@ Graph.prototype._renderGraph = function () {
     if (this._options.debug && this._options.graph.smoothing > 1) {
         console.debug("owp.graph DEBUG: Smoothed rendering: " + this._options.graph.smoothing);
     }
-    if (this._options.debug && this._options.graph.simplify) {
+    if (this._options.debug && this._options.renderSimplify()) {
         console.debug(`owp.graph DEBUG: Simplify rendering: ${this._options.graph.simplify} ${this._options.graph.simplifyBy}`);
     }
-
     //Clear old data so we can draw new.
     this._canvas.graph.clear();
-    //Get value to pixel functions.
-    const valueToPixelX = this._axes.x.getValueToPixelCallback();
-    const valueToPixelY = this._axes.y.getValueToPixelCallback();
-    //Value bounds        
-    const min = this._axes.x.getMin();
-    const max = this._axes.x.getMax();
-    //Render parameters
-    const fillGraph = this._options.graph.fill;
-    const renderLine = !!this._options.graph.lineWidth;
-    //Get canvas context directly for increased performance.
+    //Get canvas and set properties.
     const ctx = this._canvas.graph.getContext();
     ctx.lineWidth = this._options.graph.lineWidth;
     ctx.globalCompositeOperation = this._options.graph.compositeOperation;
-
+    //Get render callback based on options
+    const renderCallback = Callbacks.getRenderCallback(this._options, this._canvas.graph, this._axes);
+    //Render each data set.
     for (let i = 0; i < this._options.graph.dataY.length; ++i) {
-        //Aquire callback for getting X-axis data values.
-        const getDataX = this._options.getDataCallback("x", i);
-        //Find start and end indicies.
-        const length = this._options.graph.dataY[i].length;
-        const bsMin = Static.binarySearch(getDataX, length, min);
-        const bsMax = Static.binarySearch(getDataX, length, max);
-        let start = bsMin.found !== undefined ? bsMin.found : bsMin.min;
-        let end = bsMax.found !== undefined ? bsMax.found : bsMax.max;
-        //Aquire callback for getting Y-axis data values.
-        const getDataY = this._options.getDataCallback("y", i, start);
-        //Start path.
-        ctx.beginPath();
-
-        //Render simplified data set. Can't combine with markers
-        if (this._options.renderSimplify()) {
-            Simplify.render(ctx, valueToPixelX, valueToPixelY, getDataX, getDataY, start, end, this._options.graph.simplify, this._options.graph.simplifyBy);
-        }
-        //Render full data set.
-        else {
-            this._renderFull(ctx, valueToPixelX, valueToPixelY, getDataX, getDataY, start, end, renderLine);
-        }
-
-        //Fill graph.
-        if (fillGraph) {
-            this._renderFill(ctx, i, renderLine);
-        }
-        //Stroke line.
-        else {
-            this._renderStroke(ctx, i);
-        }
+        renderCallback(i);
     }
-};
-
-Graph.prototype._renderFull = function (ctx, valueToPixelX, valueToPixelY, getDataX, getDataY, start, end, renderLine) {
-    const circleAngle = 2 * Math.PI;
-    const renderMarkers = this._options.renderMarkers();
-    const markerRadius = this._options.graph.markerRadius;
-    //Render line and markers
-    if (renderLine && renderMarkers) {
-        for (; start <= end; ++start) {
-            const x = valueToPixelX(getDataX(start));
-            const y = valueToPixelY(getDataY(start));
-            ctx.lineTo(x, y);
-            ctx.moveTo(x + markerRadius, y);
-            ctx.arc(x, y, markerRadius, 0, circleAngle);
-            ctx.moveTo(x, y);
-        }
-    }
-    //Render only line
-    else if (renderLine) {
-        for (; start <= end; ++start) {
-            ctx.lineTo(
-                valueToPixelX(getDataX(start)),
-                valueToPixelY(getDataY(start))
-            );
-        }
-    }
-    //Render only markers
-    else if (renderMarkers) {
-        for (; start <= end; ++start) {
-            const x = valueToPixelX(getDataX(start));
-            const y = valueToPixelY(getDataY(start));
-            ctx.moveTo(x + markerRadius, y);
-            ctx.arc(x, y, markerRadius, 0, circleAngle);
-        }
-    }
-};
-
-Graph.prototype._renderFill = function (ctx, channelIndex, renderLine) {
-    if (renderLine) {
-        if (this._options.axes.x.inverted) {
-            ctx.lineTo(0, this._canvas.graph.getContentHeight());
-            ctx.lineTo(this._canvas.graph.getContentWidth(), this._canvas.graph.getContentHeight());
-        }
-        else {
-            ctx.lineTo(this._canvas.graph.getContentWidth() * this._canvas.graph.getRatio(), this._canvas.graph.getContentHeight() * this._canvas.graph.getRatio());
-            ctx.lineTo(0, this._canvas.graph.getContentHeight() * this._canvas.graph.getRatio());
-        }
-        ctx.closePath();
-    }
-    ctx.fillStyle = this._options.getColor(channelIndex + 1);
-    ctx.fill();
-};
-
-Graph.prototype._renderStroke = function (ctx, channelIndex) {
-    //Set dashed options
-    if (this._options.graph.dashed[channelIndex]) {
-        let pattern = this._options.graph.dashed[channelIndex];
-        if (pattern === true) {
-            pattern = [5, 8];
-        }
-        ctx.setLineDash(pattern);
-    }
-    else {
-        ctx.setLineDash([]);
-    }
-
-    ctx.strokeStyle = this._options.getColor(channelIndex + 1);
-    ctx.stroke();
 };
 
 /**

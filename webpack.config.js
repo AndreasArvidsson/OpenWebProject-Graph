@@ -4,9 +4,9 @@ const path = require("path");
 
 module.exports = (env, argv) => {
 
-    console.log("----------------------------")
-    console.log(" ", argv.bundle, " | ", argv.mode);
-    console.log("----------------------------\n")
+    console.debug("----------------------------")
+    console.debug(" ", argv.bundle, " | ", argv.mode);
+    console.debug("----------------------------\n")
 
     const res = {
         entry: "REPLACE",

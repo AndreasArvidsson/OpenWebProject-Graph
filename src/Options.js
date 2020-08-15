@@ -1,4 +1,3 @@
-import Static from "./Static";
 import Is from "./Is";
 
 /** 
@@ -243,7 +242,7 @@ Options.prototype.set = function (options) {
     }
     setMembers(this, options, "");
 
-    this._evalOptions();
+    this._isOk = evalOptions(this);
 };
 
 /**
@@ -274,109 +273,12 @@ Options.prototype.renderSimplify = function() {
 }
 
 /**
- * Callback function for getting data value for a given index.
- * Used instead of dataX[index] and dataY[index].
- * Has built in functionality for averaging. Implicit X-values and more.
- * @callback Options~getDataCallback
- * @param {int} index
- * @returns {number}
- */
-
-/**
- * Get a callback used to get correct X and X value data.
- * Used by the graph render function to improve performance.
- * @public
- * @param {string} axis - X or Y axis.
- * @param {int} dataIndex - The index in the data set.
- * @returns {function}
- */
-Options.prototype.getDataCallback = function (axis, dataIndex, start) {
-    let data;
-    //X-axis.
-    if (axis.toLowerCase() === "x") {
-        //Has no dataX. Return index + 1.
-        if (this.graph.dataX.length === 0) {
-            return function (index) {
-                return index + 1;
-            };
-        }
-        //Have one dataX for all dataY. 
-        if (this.graph.dataX.length === 1) {
-            data = this.graph.dataX[0];
-        }
-        //Have one dataX for each dataY. 
-        else {
-            data = this.graph.dataX[dataIndex];
-        }
-    }
-    //Y-axis.
-    else if (axis.toLowerCase() === "y") {
-        data = this.graph.dataY[dataIndex];
-        //Use smoothing.
-        if (this.graph.smoothing) {
-            return this._getDataCallbackSmoothing(start, data);
-        }
-    }
-    else {
-        console.error("owp.graph ERROR: Unknown axis: " + axis);
-    }
-    //Default
-    return function (index) {
-        return data[index];
-    };
-};
-
-/**
- * Return getDataCallback for smoothing
- * @private
- */
-Options.prototype._getDataCallbackSmoothing = function (start, data) {
-    const centralIndex = Math.max(0, start - 1);
-    const window = Static.getSmoothingWindow(centralIndex, this.graph.smoothing, data.length);
-    let low = window.low;
-    let high = window.high;
-    let sum = 0;
-    for (let i = low; i <= high; ++i) {
-        sum += data[i];
-    }
-    const threshold = 2 * this.graph.smoothing;
-    return function (index) {
-        //Decrease window size.
-        if (high === data.length - 1) {
-            low = index + index - high;
-            sum = 0;
-            for (let i = low; i <= high; ++i) {
-                sum += data[i];
-            }
-        }
-        //Increase window size.
-        else if (high < threshold) {
-            high = index + index - low;
-            sum = 0;
-            for (let i = low; i <= high; ++i) {
-                sum += data[i];
-            }
-        }
-        //Move window.
-        else {
-            sum -= data[low];
-            ++low;
-            ++high;
-            sum += data[high];
-        }
-        //Calculate average value.
-        return sum / (high - low + 1);
-    };
-}
-
-/**
  * Evaluates the options and sets ok status flag.
  * @private
  */
-Options.prototype._evalOptions = function () {
+function evalOptions (options) {
     let optionsOk = true;
     let obj, obj2, name, name2;
-    const options = this;
     function set(path) {
         name = path;
         obj = options;
@@ -877,8 +779,8 @@ Options.prototype._evalOptions = function () {
         evalType("size");
     }
 
-    this._isOk = optionsOk;
-};
+    return optionsOk;
+}
 
 /**
  @typedef OPTIONS_OBJECT

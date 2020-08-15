@@ -1,4 +1,4 @@
-console.log("test.js");
+console.debug("test.js");
 
 import GraphSrc from "../src/index";
 import GraphRoot from "..";

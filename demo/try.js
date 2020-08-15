@@ -8,7 +8,7 @@ function init() {
     Here you can try out the different options. Just update the options object in the text field and click the "update graph" button to see the result.
     <br>NOTE: If you remove an object/field from the options, the last set value will persist.`;
 
-    const dataY = Graph.createDummyData(50000, "float");
+    const dataY = Graph.createDummyData(200);
     let options = {
         title: {
             label: "Configurable graph"
