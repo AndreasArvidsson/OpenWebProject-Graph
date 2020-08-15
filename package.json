@@ -1,7 +1,7 @@
 {
     "name": "owp.graph",
     "description": "High performance graph plotter",
-    "version": "2.4.0",
+    "version": "2.5.0",
     "main": "dist/owp.graph.min.js",
     "files": [
         "dist/*",
