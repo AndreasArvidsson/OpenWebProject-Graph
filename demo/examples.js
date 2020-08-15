@@ -1,7 +1,8 @@
 import Graph from "../src/index";
 
 const root = document.getElementById("root");
-const dataY = Graph.createDummyData(200);
+const dataSize = 200;
+const dataY = Graph.createDummyData(dataSize);
 const simpleDataX = [[100, 200, 400]];
 const simpleDataY = [[1, 4, 2], [2, 3, 0.5]];
 
@@ -176,7 +177,7 @@ function addGraph(options, keepData, legendId) {
         const dataY = options.graph.dataY;
         options.graph.dataY = [];
         json = JSON.stringify(options, null, 4);
-        json = json.replace("[]", `Graph.createDummyData(${dataY.length})`);
+        json = json.replace("[]", `Graph.createDummyData(${dataSize})`);
         options.graph.dataY = dataY;
     }
 
