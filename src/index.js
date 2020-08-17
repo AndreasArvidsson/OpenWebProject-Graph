@@ -104,7 +104,7 @@ Graph.prototype._init = function (container, options) {
     if (typeof el === "string") {
         container = document.getElementById(container);
     }
-    if (!parent) {
+    if (!container) {
         console.error("owp.graph ERROR: Element dom is null");
         return;
     }
@@ -214,9 +214,15 @@ Graph.prototype._renderLegend = function (values) {
     const alignLeft = settings.align.toLowerCase() === "left";
     //newLine is disabled for top location.
     const newLine = settings.newLine && !isTop || settings.location.toLowerCase() === "right";
-    let x = alignLeft ? this._options.legend.offsetX : canvas.getWidth() - this._options.legend.offsetX;
+
+    let x = alignLeft
+        ? this._options.legend.offsetX + this._options.legend.padding
+        : canvas.getWidth() - this._options.legend.offsetX;
+
     //OffsetY is disabled for top location.
-    let y = isTop ? 0 : this._options.legend.offsetY;
+    let y = isTop
+        ? 0
+        : this._options.legend.offsetY;
 
     function printValue(color, name, value) {
         const str = name + ": " + (value !== undefined ? value : "\u2014");
@@ -358,10 +364,24 @@ Graph.prototype._updateSpinnerSize = function () {
  * @private
  */
 Graph.prototype._calculateGraphSize = function () {
-    let x = this._getOffset(["left"]);
-    let y = this._getOffset(["top"]);
-    let width = this._canvas.background.getWidth() - this._getOffset(["left", "right"]);
-    let height = this._canvas.background.getHeight() - this._getOffset(["top", "bottom"]);
+    const border = this._options.getBorder();
+    const offsetTop = this._getOffset("top");
+    const offsetBottom = this._getOffset("bottom");
+    let height = this._canvas.background.getHeight() - offsetTop - offsetBottom;
+
+    //Calculate new ticks for the new size.
+    if (this._axes.y.hasBounds()) {
+        this._axes.y.calculateTicks(height - border.top - border.bottom);
+    }
+
+    const offsetLeft = this._getOffset("left");
+    let x = offsetLeft;
+    let y = offsetTop;
+    let width = this._canvas.background.getWidth() - offsetLeft - this._getOffset("right");
+
+    if (this._axes.x.hasBounds()) {
+        this._axes.x.calculateTicks(width - border.left - border.right);
+    }
 
     //Set graph canvas.
     this._canvas.graph.setPosition(x, y);
@@ -382,11 +402,11 @@ Graph.prototype._calculateGraphSize = function () {
     //Set legend canvas if available.
     if (this._canvas.legend) {
         if (this._options.legend.location.toLowerCase() === "top") {
-            this._canvas.legend.setPosition(x, y - this._canvas.legend.getHeight() - this._options.legend.offsetY);
+            this._canvas.legend.setPosition(x, y - this._canvas.legend.getHeight() - this._options.legend.padding);
             this._canvas.legend.setSize(width, this._options.legend.size);
         }
         else if (this._options.legend.location.toLowerCase() === "right") {
-            this._canvas.legend.setPosition(0, y, true);
+            this._canvas.legend.setPosition(this._options.getOffset().right, y, true);
             this._canvas.legend.setSize(200, height);
         }
     }
@@ -397,11 +417,6 @@ Graph.prototype._calculateGraphSize = function () {
     //Updates the spinner div size.
     this._updateSpinnerSize();
 
-    //Calculate new ticks for the new size.
-    if (this._axes.x.hasBounds() && this._axes.y.hasBounds()) {
-        this._axes.x.calculateTicks();
-        this._axes.y.calculateTicks();
-    }
     this._hasCalculatedGraphSize = true;
 };
 
@@ -415,9 +430,11 @@ Graph.prototype._renderXAxis = function () {
     }
     const ticks = this._axes.x.getTicks();
     let oldX, oldWidth;
+
     for (let i = 0; i < ticks.length; ++i) {
         let x = this._canvas.graph.getContentX() + ticks[i].coordinate;
         let y = this._canvas.graph.getY() + this._canvas.graph.getHeight();
+
         //Draw tick markers.
         if (ticks.markers) {
             y += ticks.markers.offset;
@@ -425,13 +442,25 @@ Graph.prototype._renderXAxis = function () {
             y += ticks.markers.length;
         }
         //Draw grid line.
-        if (ticks.grid && x > this._canvas.graph.getContentX() * 1.01 && x < (this._canvas.graph.getContentX() + this._canvas.graph.getContentWidth()) * 0.99) {
+        if (ticks.grid
+            && x > this._canvas.graph.getContentX() * 1.01
+            && x < (this._canvas.graph.getContentX() + this._canvas.graph.getContentWidth()) * 0.99) {
             this._canvas.background.line(x, this._canvas.graph.getContentY(), x, this._canvas.graph.getContentY() + this._canvas.graph.getContentHeight(), ticks.grid.width, ticks.grid.color);
         }
+
+        //Move last tick label to the left to avoid collision with the right edge.
+        if (i === ticks.length - 1) {
+            x = Math.min(
+                x,
+                this._canvas.background.getContentWidth() - Math.ceil(ticks.labels.width[i] / 2) - 1
+            );
+        }
+
         //Draw tick label.
         if (ticks.labels && (!oldX || Math.abs(x - oldX) > oldWidth + ticks.labels.width[i] / 2)) {
-            y += ticks.labels.offset;
+            y += ticks.labels.padding;
             this._canvas.background.text(ticks[i].label, x, y, ticks.labels.font, ticks.labels.color, "center", "hanging");
+            y += ticks.labels.offset;
             oldX = x;
             oldWidth = ticks.labels.width[i];
         }
@@ -463,8 +492,9 @@ Graph.prototype._renderYAxis = function () {
         }
         //Draw tick label.
         if (ticks.labels && (!oldY || Math.abs(y - oldY) > ticks.labels.size)) {
-            x -= ticks.labels.offset;
+            x -= ticks.labels.padding;
             this._canvas.background.text(ticks[i].label, x, y, ticks.labels.font, ticks.labels.color, "right", "middle");
+            x -= ticks.labels.offset;
             oldY = y;
         }
     }
@@ -478,12 +508,12 @@ Graph.prototype._renderAxesLabels = function () {
     //Draw X label.
     if (this._options.axes.x.show && this._options.axes.x.label.length) {
         const x = this._canvas.graph.getContentX() + this._canvas.graph.getContentWidth() / 2;
-        const y = this._canvas.background.getHeight() - this._options.axes.labels.offset;
+        const y = this._canvas.background.getHeight() - this._options.axes.labels.offset - this._options.getOffset().bottom;
         this._canvas.background.text(this._axes.x.getAxisLabel(), x, y, this._axes.x.getAxisLabelFont(), this._options.axes.labels.color, "center", "bottom");
     }
     //Draw Y label.
     if (this._options.axes.y.show && this._options.axes.y.label.length) {
-        const x = this._options.axes.labels.offset;
+        const x = this._options.axes.labels.offset + this._options.getOffset().left;
         const y = this._canvas.graph.getContentY() + this._canvas.graph.getContentHeight() / 2;
         this._canvas.background.text(this._axes.y.getAxisLabel(), x, y, this._axes.y.getAxisLabelFont(), this._options.axes.labels.color, "center", "hanging", -90);
     }
@@ -499,15 +529,15 @@ Graph.prototype._renderTitle = function () {
     }
     let x;
     if (this._options.title.align.toLowerCase() === "left") {
-        x = this._canvas.graph.getContentX() + this._options.title.offsetX;
+        x = this._canvas.graph.getContentX() + this._options.title.offsetX + this._options.getOffset().left;
     }
     else if (this._options.title.align.toLowerCase() === "center") {
         x = this._canvas.graph.getContentX() + this._canvas.graph.getContentWidth() / 2 + this._options.title.offsetX;
     }
     else if (this._options.title.align.toLowerCase() === "right") {
-        x = this._canvas.graph.getContentX() + this._canvas.graph.getContentWidth() - this._options.title.offsetX;
+        x = this._canvas.graph.getContentX() + this._canvas.graph.getContentWidth() - this._options.title.offsetX - this._options.getOffset().right;
     }
-    const y = this._options.title.offsetY;
+    const y = this._options.title.offsetY + this._options.getOffset().top;
     const font = (this._options.title.bold ? "bold " : "") + this._options.title.size + "px " + this._options.title.font;
     this._canvas.background.text(this._options.title.label, x, y, font, this._options.title.color, this._options.title.align, "top");
 };
@@ -567,89 +597,85 @@ Graph.prototype._renderGraph = function () {
  * Get offset for the given paramters.
  * @private
  */
-Graph.prototype._getOffset = function (array) {
+Graph.prototype._getOffset = function (side) {
     let offset = 0;
-    for (let i = 0; i < array.length; ++i) {
-        switch (array[i]) {
-            case "top":
-                if (this._options.title.label.length) {
-                    offset += this._options.title.size;
-                    offset += this._options.title.offsetY;
-                    offset += this._options.title.padding;
+    switch (side) {
+        case "top":
+            if (this._options.title.label.length) {
+                offset += this._options.title.size;
+                offset += this._options.title.offsetY;
+                offset += this._options.title.padding;
+            }
+            if (this._canvas.legend && this._options.legend.location.toLowerCase() === "top") {
+                offset += this._canvas.legend.getHeight();
+                offset += this._options.legend.offsetY;
+                offset += this._options.legend.padding;
+            }
+            else if (this._options.axes.y.show && this._options.axes.tickLabels.show) {
+                offset += this._options.axes.tickLabels.size / 2;
+            }
+            offset += this._options.getOffset().top;
+            break;
+        case "bottom":
+            if (this._options.axes.x.show) {
+                if (this._options.axes.x.label.length) {
+                    offset += this._options.axes.labels.size;
+                    offset += this._options.axes.labels.offset;
+                    offset += this._options.axes.labels.padding;
                 }
-                if (this._canvas.legend && this._options.legend.location.toLowerCase() === "top") {
-                    offset += this._canvas.legend.getHeight() + this._options.legend.offsetY;
-                }
-                else if (this._options.axes.y.show && this._options.axes.tickLabels.show) {
-                    offset += this._options.axes.tickLabels.size / 2;
-                }
-                break;
-            case "bottom":
-                if (this._options.axes.x.show) {
-                    if (this._options.axes.x.label.length) {
-                        offset += this._options.axes.labels.size;
-                        offset += this._options.axes.labels.offset;
-                        offset += this._options.axes.labels.padding;
-                    }
-                    if (this._options.axes.x.height) {
-                        offset += this._options.axes.x.height;
-                    }
-                    else {
-                        if (this._options.axes.tickLabels.show) {
-                            offset += this._options.axes.tickLabels.size;
-                            offset += this._options.axes.tickLabels.offset;
-                        }
-                        if (this._options.axes.tickMarkers.show) {
-                            offset += this._options.axes.tickMarkers.length;
-                            offset += this._options.axes.tickMarkers.offset;
-                        }
-                    }
-                }
-                else if (this._options.axes.y.show && this._options.axes.tickLabels.show) {
-                    offset += this._options.axes.tickLabels.size / 2;
-                }
-                break;
-            case "left":
-                if (this._options.axes.y.show) {
-                    if (this._options.axes.y.label.length) {
-                        offset += this._options.axes.labels.size;
-                        offset += this._options.axes.labels.offset;
-                        offset += this._options.axes.labels.padding;
-                    }
-                    if (this._options.axes.y.width) {
-                        offset += this._options.axes.y.width;
-                    }
-                    else {
-                        if (this._options.axes.tickLabels.show) {
-                            const tickLabelMinSize = this._axes.y.getBoundLabelWidth("min", true);
-                            const tickLabelMaxSize = this._axes.y.getBoundLabelWidth("max", true);
-                            offset += Math.max(tickLabelMinSize, tickLabelMaxSize);
-                            offset += this._options.axes.tickLabels.offset;
-                        }
-                        if (this._options.axes.tickMarkers.show) {
-                            offset += this._options.axes.tickMarkers.length;
-                            offset += this._options.axes.tickMarkers.offset;
-                        }
-                    }
-                }
-                else if (this._options.axes.x.show && this._options.axes.tickLabels.show) {
-                    offset += this._axes.x.getBoundLabelWidth("min", true);
-                }
-                break;
-            case "right":
-                if (this._canvas.legend && this._options.legend.location.toLowerCase() === "right") {
-                    offset += this._canvas.legend.getWidth();
+                if (this._options.axes.x.height) {
+                    offset += this._options.axes.x.height;
                 }
                 else {
-                    const defaultOffset = 20;
-                    let boundOffset = 0;
-                    if (this._options.axes.x.show && this._axes.x.hasBounds() && this._options.axes.tickLabels.show) {
-                        boundOffset = this._axes.x.getBoundLabelWidth("max", true) / 2;
+                    if (this._options.axes.tickLabels.show) {
+                        offset += this._options.axes.tickLabels.size;
+                        offset += this._options.axes.tickLabels.offset;
+                        offset += this._options.axes.tickLabels.padding;
                     }
-                    offset += Math.max(defaultOffset, boundOffset);
+                    if (this._options.axes.tickMarkers.show) {
+                        offset += this._options.axes.tickMarkers.length;
+                        offset += this._options.axes.tickMarkers.offset;
+                    }
                 }
-                break;
-        }
+            }
+            else if (this._options.axes.y.show && this._options.axes.tickLabels.show) {
+                offset += this._options.axes.tickLabels.size / 2;
+            }
+            offset += this._options.getOffset().bottom;
+            break;
+        case "left":
+            if (this._options.axes.y.show) {
+                if (this._options.axes.y.label.length) {
+                    offset += this._options.axes.labels.size;
+                    offset += this._options.axes.labels.offset;
+                    offset += this._options.axes.labels.padding;
+                }
+                if (this._options.axes.y.width) {
+                    offset += this._options.axes.y.width;
+                }
+                else {
+                    if (this._options.axes.tickLabels.show) {
+                        offset += this._axes.y.getLabelWidth();
+                        offset += this._options.axes.tickLabels.offset;
+                        offset += this._options.axes.tickLabels.padding;
+                    }
+                    if (this._options.axes.tickMarkers.show) {
+                        offset += this._options.axes.tickMarkers.length;
+                        offset += this._options.axes.tickMarkers.offset;
+                    }
+                }
+            }
+            else if (this._options.axes.x.show && this._options.axes.tickLabels.show) {
+                offset += this._axes.x.getBoundLabelWidth("min", true);
+            }
+            offset += this._options.getOffset().left;
+            break;
+        case "right":
+            if (this._canvas.legend && this._options.legend.location.toLowerCase() === "right") {
+                offset += this._canvas.legend.getWidth();
+            }
+            offset += this._options.getOffset().right;
+            break;
     }
     return Math.round(offset);
 };

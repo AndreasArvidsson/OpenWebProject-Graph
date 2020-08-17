@@ -236,20 +236,14 @@ Axis.prototype.getAxisLabelFont = function () {
   return this._options.axes.labels.size + "px " + this._options.axes.labels.font;
 };
 /**
- * Get bounds label width in pixels. Uses the options value formatter if set.
+ * Get max width for labels.
  * @public
  * @returns {int}
  */
 
 
-Axis.prototype.getBoundLabelWidth = function (minOrMax, pad) {
-  let bound = minOrMax === "min" ? this.getMin() : this.getMax();
-
-  if (pad) {
-    bound = _Static__WEBPACK_IMPORTED_MODULE_0__["default"].round(bound + 0.111111111111111, 3);
-  }
-
-  return _Static__WEBPACK_IMPORTED_MODULE_0__["default"].getTextWidth(bound, this.getTickLabelsFont());
+Axis.prototype.getLabelWidth = function () {
+  return this._ticks ? this._ticks.labels.maxWidth : 0;
 };
 /**
  * Get the ticks array.
@@ -364,18 +358,23 @@ Axis.prototype.calculateBounds = function () {
 /**
  * Calculate graph axes ticks.
  * @public
+ * @param {number} orientation - Optional size instead if using canvas size.
  */
 
 
-Axis.prototype.calculateTicks = function () {
+Axis.prototype.calculateTicks = function (size) {
+  if (!size) {
+    size = this._getSize();
+  }
+
   let ticks;
   const labelSize = this._isX ? this._options.axes.tickLabels.width : this._options.axes.tickLabels.size; //Create ticks with user given options ticker.
 
   if (this._axis.ticker) {
-    ticks = this._axis.ticker(this._axis.log, this.getMin(), this.getMax(), this._getSize(), labelSize);
+    ticks = this._axis.ticker(this._axis.log, this.getMin(), this.getMax(), size, labelSize);
   } //Create ticks with the default ticker.
   else {
-      ticks = this._getDefaultTicks(this._axis.log, this.getMin(), this.getMax(), this._getSize(), labelSize);
+      ticks = this._getDefaultTicks(this._axis.log, this.getMin(), this.getMax(), size, labelSize);
     }
 
   if (!ticks.length) {
@@ -384,7 +383,7 @@ Axis.prototype.calculateTicks = function () {
 
 
   for (let i = 0; i < ticks.length; ++i) {
-    ticks[i].coordinate = this.valueToPixel(ticks[i].value);
+    ticks[i].coordinate = this.valueToPixel(ticks[i].value, size);
   } //Show tick markers.
 
 
@@ -401,14 +400,18 @@ Axis.prototype.calculateTicks = function () {
   if (this._options.axes.tickLabels.show) {
     ticks.labels = {
       offset: this._options.axes.tickLabels.offset,
+      padding: this._options.axes.tickLabels.padding,
       size: this._options.axes.tickLabels.size,
       color: this._options.axes.tickLabels.color,
       font: this.getTickLabelsFont(),
-      width: []
+      width: [],
+      maxWidth: 0
     };
 
     for (let i = 0; i < ticks.length; ++i) {
-      ticks.labels.width[i] = _Static__WEBPACK_IMPORTED_MODULE_0__["default"].getTextWidth(ticks[i].label, this.getTickLabelsFont());
+      const width = _Static__WEBPACK_IMPORTED_MODULE_0__["default"].getTextWidth(ticks[i].label, this.getTickLabelsFont());
+      ticks.labels.width[i] = width;
+      ticks.labels.maxWidth = Math.max(ticks.labels.maxWidth, width);
     }
   } //Show grid.
 
@@ -453,28 +456,33 @@ Axis.prototype.pixelToValue = function (pixel) {
 /**
  * Get pixel coordinate from given value.
  * @public
+ * @param {number} orientation - Optional size instead if using canvas size.
  * @returns {number}
  */
 
 
-Axis.prototype.valueToPixel = function (value) {
-  //Logarithmic
+Axis.prototype.valueToPixel = function (value, size) {
+  if (!size) {
+    size = this._getSize();
+  } //Logarithmic
+
+
   if (this._axis.log) {
     //Logarithmic inverted orientation.
     if (this._isX ? this._axis.inverted : !this._axis.inverted) {
-      return log10(value / this.getMax()) / log10(this.getMin() / this.getMax()) * this._getSize();
+      return log10(value / this.getMax()) / log10(this.getMin() / this.getMax()) * size;
     } //Logarithmic normal orientation.
     else {
-        return log10(value / this.getMin()) / log10(this.getMax() / this.getMin()) * this._getSize();
+        return log10(value / this.getMin()) / log10(this.getMax() / this.getMin()) * size;
       }
   } //Linear
   else {
       //Linear inverted orientation.
       if (this._isX ? this._axis.inverted : !this._axis.inverted) {
-        return (value - this.getMax()) / (this.getMin() - this.getMax()) * this._getSize();
+        return (value - this.getMax()) / (this.getMin() - this.getMax()) * size;
       } //Linear normal orientation.
       else {
-          return (value - this.getMin()) / (this.getMax() - this.getMin()) * this._getSize();
+          return (value - this.getMin()) / (this.getMax() - this.getMin()) * size;
         }
     }
 };
@@ -2820,6 +2828,13 @@ Is.isBorderWidth = function (obj) {
   return div.style.borderWidth !== "";
 };
 
+Is.isOffset = function (obj) {
+  const div = document.createElement("div");
+  div.style.margin = "";
+  div.style.margin = obj;
+  return div.style.margin !== "";
+};
+
 Is.isBorderStyle = function (obj) {
   const div = document.createElement("div");
   div.style.borderStyle = "";
@@ -2889,6 +2904,9 @@ Is.getCompareCallback = function (type) {
 
     case "null":
       return Is.isNull;
+
+    case "offset":
+      return Is.isOffset;
 
     default:
       throw new Error("Is.getCompareCallback: No compare typed found for: " + type);
@@ -2988,6 +3006,8 @@ function isOfType2(obj, callbacks) {
 "use strict";
 __webpack_require__.r(__webpack_exports__);
 /* harmony import */ var _Is__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ./Is */ "./src/Is.js");
+/* harmony import */ var _Static__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ./Static */ "./src/Static.js");
+
 
 /** 
  * The Options class is the options and associated functions for the Graph class.
@@ -3067,6 +3087,7 @@ Options.prototype.getLegendFont = function () {
 Options.getDefault = function () {
   return {
     debug: false,
+    offset: "0 20px 0 0",
     interaction: {
       resize: true,
       trackMouse: true,
@@ -3079,7 +3100,7 @@ Options.getDefault = function () {
       size: 20,
       offsetX: 0,
       offsetY: 0,
-      padding: 5,
+      padding: 3,
       font: "verdana",
       color: "black",
       align: "center"
@@ -3088,8 +3109,9 @@ Options.getDefault = function () {
       location: "top",
       font: "Arial",
       size: 15,
-      offsetX: 10,
-      offsetY: 2,
+      offsetX: 0,
+      offsetY: 0,
+      padding: 2,
       align: "right",
       newLine: false
     },
@@ -3134,13 +3156,14 @@ Options.getDefault = function () {
         font: "Arial",
         size: 12,
         width: 40,
-        offset: 2
+        offset: 3,
+        padding: 2
       },
       labels: {
         color: "black",
         font: "verdana",
         size: 15,
-        offset: 3,
+        offset: 0,
         padding: 0
       },
       x: {
@@ -3255,6 +3278,8 @@ Options.prototype.set = function (options) {
 
   setMembers(this, options, "");
   this._isOk = evalOptions(this);
+  this._offset = _Static__WEBPACK_IMPORTED_MODULE_1__["default"].calculateOffset(this.offset);
+  this._border = _Static__WEBPACK_IMPORTED_MODULE_1__["default"].calculateOffset(this.border.width);
 };
 /**
  * Sets all options to their default values.
@@ -3285,6 +3310,24 @@ Options.prototype.renderMarkers = function () {
 Options.prototype.renderSimplify = function () {
   //Can't combined simplified rendering with markers.
   return this.graph.simplify && !this.renderMarkers();
+};
+/**
+ * Returns object with all 4 side offsets
+ * @public
+ */
+
+
+Options.prototype.getOffset = function () {
+  return this._offset;
+};
+/**
+ * Returns object with all 4 side borders
+ * @public
+ */
+
+
+Options.prototype.getBorder = function () {
+  return this._border;
 };
 /**
  * Evaluates the options and sets ok status flag.
@@ -3381,6 +3424,8 @@ function evalOptions(options) {
 
   set("debug");
   evalType("bool");
+  set("offset");
+  evalType("int|offset");
   set("interaction");
 
   if (evalType("object")) {
@@ -3402,14 +3447,21 @@ function evalOptions(options) {
     set("title.label");
     evalType("string");
     set("title.size");
-    evalType("int");
-    evalCond("obj > 0");
+
+    if (evalType("int")) {
+      evalCond("obj > 0");
+    }
+
     set("title.offsetX");
     evalType("int");
     set("title.offsetY");
     evalType("int");
     set("title.padding");
-    evalType("int");
+
+    if (evalType("int")) {
+      evalCond("obj >= 0");
+    }
+
     set("title.font");
     evalType("font");
     set("title.color");
@@ -3432,12 +3484,10 @@ function evalOptions(options) {
     }
 
     set("legend.offsetX");
-
-    if (evalType("int")) {
-      evalCond("obj >= 0");
-    }
-
+    evalType("int");
     set("legend.offsetY");
+    evalType("int");
+    set("legend.padding");
 
     if (evalType("int")) {
       evalCond("obj >= 0");
@@ -3629,6 +3679,12 @@ function evalOptions(options) {
       if (evalType("int")) {
         evalCond("obj >= 0");
       }
+
+      set("axes.tickLabels.padding");
+
+      if (evalType("int")) {
+        evalCond("obj >= 0");
+      }
     }
 
     set("axes.labels");
@@ -3645,7 +3701,11 @@ function evalOptions(options) {
       }
 
       set("axes.labels.offset");
-      evalType("int");
+
+      if (evalType("int")) {
+        evalCond("obj >= 0");
+      }
+
       set("axes.labels.padding");
 
       if (evalType("int")) {
@@ -3667,14 +3727,20 @@ function evalOptions(options) {
         set(axes[i] + ".log");
         evalType("bool");
         set(axes[i] + "." + (axes[i] === "axes.x" ? "height" : "width"));
-        evalType("int");
-        evalCond("obj >= 0");
+
+        if (evalType("int")) {
+          evalCond("obj >= 0");
+        }
+
         set(axes[i] + ".grid");
 
         if (evalType("object")) {
           set(axes[i] + ".grid.width");
-          evalType("int");
-          evalCond("obj >= 0");
+
+          if (evalType("int")) {
+            evalCond("obj >= 0");
+          }
+
           set(axes[i] + ".grid.color");
           evalType("color");
         }
@@ -3715,7 +3781,11 @@ function evalOptions(options) {
         }
 
         set(axes[i] + ".numTicks");
-        evalType("int");
+
+        if (evalType("int")) {
+          evalCond("obj >= 0");
+        }
+
         set(axes[i] + ".legendValueFormatter");
         evalType("function|null");
         set(axes[i] + ".tickerValuePreFormatter");
@@ -3825,6 +3895,7 @@ function evalOptions(options) {
  @type {object}
 
  @property {bool} debug - If true debug info will be outputted to the console.
+ @property {int} offset - Offset in pixels. Between outer edge and inner content.
 
  @property {object} interaction - Options regarding user interaction with the graph.
  @property {bool} resize - If true the graph will be resized automatically.
@@ -3847,8 +3918,9 @@ function evalOptions(options) {
  @property {bool} legend.show - If true the legend is shown.
  @property {string} legend.font - Font family of the text.
  @property {int} legend.size - Font size/height in pixels.
- @property {int} legend.offsetX - Y-axis offset in pixels. Between legend and graph vertical side.
- @property {int} legend.offsetY - X-axis offset in pixels. Between legend and graph top.
+ @property {int} legend.offsetX - Y-axis offset in pixels. Move legend in x-axis.
+ @property {int} legend.offsetY - X-axis offset in pixels. Move legend in y-axis.
+ @property {int} legend.padding - Padding in pixels. Between legend and graph.
  @property {int} legend.align -  The legend alignment. ["left", "right"]
  @property {int} legend.newLine -  If true a new line is made between each data set.
 
@@ -3894,7 +3966,8 @@ function evalOptions(options) {
  @property {string} axes.tickLabels.font - Font family of the text.
  @property {int} axes.tickLabels.size - Font size/height in pixels of the text.
  @property {int} axes.tickLabels.width - Max width of the labels. Used to calculate ticks.
- @property {int} axes.tickLabels.offset - Offset in pixels. Between graph and markers.
+ @property {int} axes.tickLabels.offset - Offset in pixels. Between outer edge and tick labels.
+ @property {int} axes.tickLabels.padding - Padding in pixels. Between graph and markers.
 
  @property {object} axes.labels - Options regarding the axes labels.
  @property {string} axes.labels.color - Color of the text.
@@ -4102,7 +4175,32 @@ Static.round = function (value, decimals) {
 
 Static.log10 = x => Math.log(x) / Math.LN10;
 
+Static.calculateOffset = function (offset) {
+  if (typeof offset === "number") {
+    return {
+      top: offset,
+      right: offset,
+      bottom: offset,
+      left: offset
+    };
+  }
+
+  const div = document.createElement("div");
+  div.style.margin = "";
+  div.style.margin = offset;
+  return {
+    top: pxToNum(div.style.marginTop),
+    right: pxToNum(div.style.marginRight),
+    bottom: pxToNum(div.style.marginBottom),
+    left: pxToNum(div.style.marginLeft)
+  };
+};
+
 /* harmony default export */ __webpack_exports__["default"] = (Static);
+
+function pxToNum(str) {
+  return parseInt(str.replace("px", ""));
+}
 
 /***/ }),
 
@@ -4241,7 +4339,7 @@ Graph.prototype._init = function (container, options) {
     container = document.getElementById(container);
   }
 
-  if (!parent) {
+  if (!container) {
     console.error("owp.graph ERROR: Element dom is null");
     return;
   }
@@ -4351,7 +4449,7 @@ Graph.prototype._renderLegend = function (values) {
   const alignLeft = settings.align.toLowerCase() === "left"; //newLine is disabled for top location.
 
   const newLine = settings.newLine && !isTop || settings.location.toLowerCase() === "right";
-  let x = alignLeft ? this._options.legend.offsetX : canvas.getWidth() - this._options.legend.offsetX; //OffsetY is disabled for top location.
+  let x = alignLeft ? this._options.legend.offsetX + this._options.legend.padding : canvas.getWidth() - this._options.legend.offsetX; //OffsetY is disabled for top location.
 
   let y = isTop ? 0 : this._options.legend.offsetY;
 
@@ -4505,13 +4603,28 @@ Graph.prototype._updateSpinnerSize = function () {
 
 
 Graph.prototype._calculateGraphSize = function () {
-  let x = this._getOffset(["left"]);
+  const border = this._options.getBorder();
 
-  let y = this._getOffset(["top"]);
+  const offsetTop = this._getOffset("top");
 
-  let width = this._canvas.background.getWidth() - this._getOffset(["left", "right"]);
+  const offsetBottom = this._getOffset("bottom");
 
-  let height = this._canvas.background.getHeight() - this._getOffset(["top", "bottom"]); //Set graph canvas.
+  let height = this._canvas.background.getHeight() - offsetTop - offsetBottom; //Calculate new ticks for the new size.
+
+  if (this._axes.y.hasBounds()) {
+    this._axes.y.calculateTicks(height - border.top - border.bottom);
+  }
+
+  const offsetLeft = this._getOffset("left");
+
+  let x = offsetLeft;
+  let y = offsetTop;
+
+  let width = this._canvas.background.getWidth() - offsetLeft - this._getOffset("right");
+
+  if (this._axes.x.hasBounds()) {
+    this._axes.x.calculateTicks(width - border.left - border.right);
+  } //Set graph canvas.
 
 
   this._canvas.graph.setPosition(x, y);
@@ -4536,11 +4649,11 @@ Graph.prototype._calculateGraphSize = function () {
 
   if (this._canvas.legend) {
     if (this._options.legend.location.toLowerCase() === "top") {
-      this._canvas.legend.setPosition(x, y - this._canvas.legend.getHeight() - this._options.legend.offsetY);
+      this._canvas.legend.setPosition(x, y - this._canvas.legend.getHeight() - this._options.legend.padding);
 
       this._canvas.legend.setSize(width, this._options.legend.size);
     } else if (this._options.legend.location.toLowerCase() === "right") {
-      this._canvas.legend.setPosition(0, y, true);
+      this._canvas.legend.setPosition(this._options.getOffset().right, y, true);
 
       this._canvas.legend.setSize(200, height);
     }
@@ -4550,14 +4663,7 @@ Graph.prototype._calculateGraphSize = function () {
   this._interaction.graphChangedSize(x, y, width, height); //Updates the spinner div size.
 
 
-  this._updateSpinnerSize(); //Calculate new ticks for the new size.
-
-
-  if (this._axes.x.hasBounds() && this._axes.y.hasBounds()) {
-    this._axes.x.calculateTicks();
-
-    this._axes.y.calculateTicks();
-  }
+  this._updateSpinnerSize();
 
   this._hasCalculatedGraphSize = true;
 };
@@ -4593,14 +4699,20 @@ Graph.prototype._renderXAxis = function () {
 
     if (ticks.grid && x > this._canvas.graph.getContentX() * 1.01 && x < (this._canvas.graph.getContentX() + this._canvas.graph.getContentWidth()) * 0.99) {
       this._canvas.background.line(x, this._canvas.graph.getContentY(), x, this._canvas.graph.getContentY() + this._canvas.graph.getContentHeight(), ticks.grid.width, ticks.grid.color);
+    } //Move last tick label to the left to avoid collision with the right edge.
+
+
+    if (i === ticks.length - 1) {
+      x = Math.min(x, this._canvas.background.getContentWidth() - Math.ceil(ticks.labels.width[i] / 2) - 1);
     } //Draw tick label.
 
 
     if (ticks.labels && (!oldX || Math.abs(x - oldX) > oldWidth + ticks.labels.width[i] / 2)) {
-      y += ticks.labels.offset;
+      y += ticks.labels.padding;
 
       this._canvas.background.text(ticks[i].label, x, y, ticks.labels.font, ticks.labels.color, "center", "hanging");
 
+      y += ticks.labels.offset;
       oldX = x;
       oldWidth = ticks.labels.width[i];
     }
@@ -4641,10 +4753,11 @@ Graph.prototype._renderYAxis = function () {
 
 
     if (ticks.labels && (!oldY || Math.abs(y - oldY) > ticks.labels.size)) {
-      x -= ticks.labels.offset;
+      x -= ticks.labels.padding;
 
       this._canvas.background.text(ticks[i].label, x, y, ticks.labels.font, ticks.labels.color, "right", "middle");
 
+      x -= ticks.labels.offset;
       oldY = y;
     }
   }
@@ -4660,14 +4773,15 @@ Graph.prototype._renderAxesLabels = function () {
   if (this._options.axes.x.show && this._options.axes.x.label.length) {
     const x = this._canvas.graph.getContentX() + this._canvas.graph.getContentWidth() / 2;
 
-    const y = this._canvas.background.getHeight() - this._options.axes.labels.offset;
+    const y = this._canvas.background.getHeight() - this._options.axes.labels.offset - this._options.getOffset().bottom;
 
     this._canvas.background.text(this._axes.x.getAxisLabel(), x, y, this._axes.x.getAxisLabelFont(), this._options.axes.labels.color, "center", "bottom");
   } //Draw Y label.
 
 
   if (this._options.axes.y.show && this._options.axes.y.label.length) {
-    const x = this._options.axes.labels.offset;
+    const x = this._options.axes.labels.offset + this._options.getOffset().left;
+
     const y = this._canvas.graph.getContentY() + this._canvas.graph.getContentHeight() / 2;
 
     this._canvas.background.text(this._axes.y.getAxisLabel(), x, y, this._axes.y.getAxisLabelFont(), this._options.axes.labels.color, "center", "hanging", -90);
@@ -4687,14 +4801,15 @@ Graph.prototype._renderTitle = function () {
   let x;
 
   if (this._options.title.align.toLowerCase() === "left") {
-    x = this._canvas.graph.getContentX() + this._options.title.offsetX;
+    x = this._canvas.graph.getContentX() + this._options.title.offsetX + this._options.getOffset().left;
   } else if (this._options.title.align.toLowerCase() === "center") {
     x = this._canvas.graph.getContentX() + this._canvas.graph.getContentWidth() / 2 + this._options.title.offsetX;
   } else if (this._options.title.align.toLowerCase() === "right") {
-    x = this._canvas.graph.getContentX() + this._canvas.graph.getContentWidth() - this._options.title.offsetX;
+    x = this._canvas.graph.getContentX() + this._canvas.graph.getContentWidth() - this._options.title.offsetX - this._options.getOffset().right;
   }
 
-  const y = this._options.title.offsetY;
+  const y = this._options.title.offsetY + this._options.getOffset().top;
+
   const font = (this._options.title.bold ? "bold " : "") + this._options.title.size + "px " + this._options.title.font;
 
   this._canvas.background.text(this._options.title.label, x, y, font, this._options.title.color, this._options.title.align, "top");
@@ -4761,100 +4876,93 @@ Graph.prototype._renderGraph = function () {
  */
 
 
-Graph.prototype._getOffset = function (array) {
+Graph.prototype._getOffset = function (side) {
   let offset = 0;
 
-  for (let i = 0; i < array.length; ++i) {
-    switch (array[i]) {
-      case "top":
-        if (this._options.title.label.length) {
-          offset += this._options.title.size;
-          offset += this._options.title.offsetY;
-          offset += this._options.title.padding;
+  switch (side) {
+    case "top":
+      if (this._options.title.label.length) {
+        offset += this._options.title.size;
+        offset += this._options.title.offsetY;
+        offset += this._options.title.padding;
+      }
+
+      if (this._canvas.legend && this._options.legend.location.toLowerCase() === "top") {
+        offset += this._canvas.legend.getHeight();
+        offset += this._options.legend.offsetY;
+        offset += this._options.legend.padding;
+      } else if (this._options.axes.y.show && this._options.axes.tickLabels.show) {
+        offset += this._options.axes.tickLabels.size / 2;
+      }
+
+      offset += this._options.getOffset().top;
+      break;
+
+    case "bottom":
+      if (this._options.axes.x.show) {
+        if (this._options.axes.x.label.length) {
+          offset += this._options.axes.labels.size;
+          offset += this._options.axes.labels.offset;
+          offset += this._options.axes.labels.padding;
         }
 
-        if (this._canvas.legend && this._options.legend.location.toLowerCase() === "top") {
-          offset += this._canvas.legend.getHeight() + this._options.legend.offsetY;
-        } else if (this._options.axes.y.show && this._options.axes.tickLabels.show) {
-          offset += this._options.axes.tickLabels.size / 2;
-        }
-
-        break;
-
-      case "bottom":
-        if (this._options.axes.x.show) {
-          if (this._options.axes.x.label.length) {
-            offset += this._options.axes.labels.size;
-            offset += this._options.axes.labels.offset;
-            offset += this._options.axes.labels.padding;
-          }
-
-          if (this._options.axes.x.height) {
-            offset += this._options.axes.x.height;
-          } else {
-            if (this._options.axes.tickLabels.show) {
-              offset += this._options.axes.tickLabels.size;
-              offset += this._options.axes.tickLabels.offset;
-            }
-
-            if (this._options.axes.tickMarkers.show) {
-              offset += this._options.axes.tickMarkers.length;
-              offset += this._options.axes.tickMarkers.offset;
-            }
-          }
-        } else if (this._options.axes.y.show && this._options.axes.tickLabels.show) {
-          offset += this._options.axes.tickLabels.size / 2;
-        }
-
-        break;
-
-      case "left":
-        if (this._options.axes.y.show) {
-          if (this._options.axes.y.label.length) {
-            offset += this._options.axes.labels.size;
-            offset += this._options.axes.labels.offset;
-            offset += this._options.axes.labels.padding;
-          }
-
-          if (this._options.axes.y.width) {
-            offset += this._options.axes.y.width;
-          } else {
-            if (this._options.axes.tickLabels.show) {
-              const tickLabelMinSize = this._axes.y.getBoundLabelWidth("min", true);
-
-              const tickLabelMaxSize = this._axes.y.getBoundLabelWidth("max", true);
-
-              offset += Math.max(tickLabelMinSize, tickLabelMaxSize);
-              offset += this._options.axes.tickLabels.offset;
-            }
-
-            if (this._options.axes.tickMarkers.show) {
-              offset += this._options.axes.tickMarkers.length;
-              offset += this._options.axes.tickMarkers.offset;
-            }
-          }
-        } else if (this._options.axes.x.show && this._options.axes.tickLabels.show) {
-          offset += this._axes.x.getBoundLabelWidth("min", true);
-        }
-
-        break;
-
-      case "right":
-        if (this._canvas.legend && this._options.legend.location.toLowerCase() === "right") {
-          offset += this._canvas.legend.getWidth();
+        if (this._options.axes.x.height) {
+          offset += this._options.axes.x.height;
         } else {
-          const defaultOffset = 20;
-          let boundOffset = 0;
-
-          if (this._options.axes.x.show && this._axes.x.hasBounds() && this._options.axes.tickLabels.show) {
-            boundOffset = this._axes.x.getBoundLabelWidth("max", true) / 2;
+          if (this._options.axes.tickLabels.show) {
+            offset += this._options.axes.tickLabels.size;
+            offset += this._options.axes.tickLabels.offset;
+            offset += this._options.axes.tickLabels.padding;
           }
 
-          offset += Math.max(defaultOffset, boundOffset);
+          if (this._options.axes.tickMarkers.show) {
+            offset += this._options.axes.tickMarkers.length;
+            offset += this._options.axes.tickMarkers.offset;
+          }
+        }
+      } else if (this._options.axes.y.show && this._options.axes.tickLabels.show) {
+        offset += this._options.axes.tickLabels.size / 2;
+      }
+
+      offset += this._options.getOffset().bottom;
+      break;
+
+    case "left":
+      if (this._options.axes.y.show) {
+        if (this._options.axes.y.label.length) {
+          offset += this._options.axes.labels.size;
+          offset += this._options.axes.labels.offset;
+          offset += this._options.axes.labels.padding;
         }
 
-        break;
-    }
+        if (this._options.axes.y.width) {
+          offset += this._options.axes.y.width;
+        } else {
+          if (this._options.axes.tickLabels.show) {
+            offset += this._axes.y.getLabelWidth();
+            offset += this._options.axes.tickLabels.offset;
+            offset += this._options.axes.tickLabels.padding;
+          }
+
+          if (this._options.axes.tickMarkers.show) {
+            offset += this._options.axes.tickMarkers.length;
+            offset += this._options.axes.tickMarkers.offset;
+          }
+        }
+      } else if (this._options.axes.x.show && this._options.axes.tickLabels.show) {
+        offset += this._axes.x.getBoundLabelWidth("min", true);
+      }
+
+      offset += this._options.getOffset().left;
+      break;
+
+    case "right":
+      if (this._canvas.legend && this._options.legend.location.toLowerCase() === "right") {
+        offset += this._canvas.legend.getWidth();
+      }
+
+      offset += this._options.getOffset().right;
+      break;
   }
 
   return Math.round(offset);

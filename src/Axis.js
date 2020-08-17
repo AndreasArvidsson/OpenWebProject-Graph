@@ -118,16 +118,12 @@ Axis.prototype.getAxisLabelFont = function () {
 };
 
 /**
- * Get bounds label width in pixels. Uses the options value formatter if set.
+ * Get max width for labels.
  * @public
  * @returns {int}
  */
-Axis.prototype.getBoundLabelWidth = function (minOrMax, pad) {
-    let bound = minOrMax === "min" ? this.getMin() : this.getMax();
-    if (pad) {
-        bound = Static.round(bound + 0.111111111111111, 3);
-    }
-    return Static.getTextWidth(bound, this.getTickLabelsFont());
+Axis.prototype.getLabelWidth = function () {
+    return this._ticks ? this._ticks.labels.maxWidth : 0;
 };
 
 /**
@@ -237,17 +233,22 @@ Axis.prototype.calculateBounds = function () {
 /**
  * Calculate graph axes ticks.
  * @public
+ * @param {number} orientation - Optional size instead if using canvas size.
  */
-Axis.prototype.calculateTicks = function () {
+Axis.prototype.calculateTicks = function (size) {
+    if (!size) {
+        size = this._getSize();
+    }
+
     let ticks;
     const labelSize = this._isX ? this._options.axes.tickLabels.width : this._options.axes.tickLabels.size;
     //Create ticks with user given options ticker.
     if (this._axis.ticker) {
-        ticks = this._axis.ticker(this._axis.log, this.getMin(), this.getMax(), this._getSize(), labelSize);
+        ticks = this._axis.ticker(this._axis.log, this.getMin(), this.getMax(), size, labelSize);
     }
     //Create ticks with the default ticker.
     else {
-        ticks = this._getDefaultTicks(this._axis.log, this.getMin(), this.getMax(), this._getSize(), labelSize);
+        ticks = this._getDefaultTicks(this._axis.log, this.getMin(), this.getMax(), size, labelSize);
     }
 
     if (!ticks.length) {
@@ -256,7 +257,7 @@ Axis.prototype.calculateTicks = function () {
 
     //Update ticks with pixel coordinates.
     for (let i = 0; i < ticks.length; ++i) {
-        ticks[i].coordinate = this.valueToPixel(ticks[i].value);
+        ticks[i].coordinate = this.valueToPixel(ticks[i].value, size);
     }
     //Show tick markers.
     if (this._options.axes.tickMarkers.show) {
@@ -271,13 +272,17 @@ Axis.prototype.calculateTicks = function () {
     if (this._options.axes.tickLabels.show) {
         ticks.labels = {
             offset: this._options.axes.tickLabels.offset,
+            padding: this._options.axes.tickLabels.padding,
             size: this._options.axes.tickLabels.size,
             color: this._options.axes.tickLabels.color,
             font: this.getTickLabelsFont(),
-            width: []
+            width: [],
+            maxWidth: 0
         };
         for (let i = 0; i < ticks.length; ++i) {
-            ticks.labels.width[i] = Static.getTextWidth(ticks[i].label, this.getTickLabelsFont());
+            const width = Static.getTextWidth(ticks[i].label, this.getTickLabelsFont());
+            ticks.labels.width[i] = width;
+            ticks.labels.maxWidth = Math.max(ticks.labels.maxWidth, width);
         }
     }
     //Show grid.
@@ -323,29 +328,33 @@ Axis.prototype.pixelToValue = function (pixel) {
 /**
  * Get pixel coordinate from given value.
  * @public
+ * @param {number} orientation - Optional size instead if using canvas size.
  * @returns {number}
  */
-Axis.prototype.valueToPixel = function (value) {
+Axis.prototype.valueToPixel = function (value, size) {
+    if (!size) {
+        size = this._getSize();
+    }
     //Logarithmic
     if (this._axis.log) {
         //Logarithmic inverted orientation.
         if (this._isX ? this._axis.inverted : !this._axis.inverted) {
-            return log10(value / this.getMax()) / log10(this.getMin() / this.getMax()) * this._getSize();
+            return log10(value / this.getMax()) / log10(this.getMin() / this.getMax()) * size;
         }
         //Logarithmic normal orientation.
         else {
-            return log10(value / this.getMin()) / log10(this.getMax() / this.getMin()) * this._getSize();
+            return log10(value / this.getMin()) / log10(this.getMax() / this.getMin()) * size;
         }
     }
     //Linear
     else {
         //Linear inverted orientation.
         if (this._isX ? this._axis.inverted : !this._axis.inverted) {
-            return (value - this.getMax()) / (this.getMin() - this.getMax()) * this._getSize();
+            return (value - this.getMax()) / (this.getMin() - this.getMax()) * size;
         }
         //Linear normal orientation.
         else {
-            return (value - this.getMin()) / (this.getMax() - this.getMin()) * this._getSize();
+            return (value - this.getMin()) / (this.getMax() - this.getMin()) * size;
         }
     }
 };

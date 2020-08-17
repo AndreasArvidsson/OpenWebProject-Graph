@@ -6,26 +6,6 @@ const dataY = Graph.createDummyData(dataSize);
 const simpleDataX = [[100, 200, 400]];
 const simpleDataY = [[1, 4, 2], [2, 3, 0.5]];
 
-function getOptions(title) {
-    return {
-        title: {
-            label: title
-        },
-        axes: {
-            x: {
-                label: "Frequency (Hz)",
-            },
-            y: {
-                label: "Amplitude (dB)",
-            }
-        },
-        graph: {
-            names: ["x", "Left", "Right"],
-            dataY
-        }
-    };
-}
-
 function init() {
     let options;
 
@@ -59,6 +39,7 @@ function init() {
     addGraph(options, undefined);
 
     options = getOptions("Legend right");
+    options.offset =  "5px 0px 5px 5px";
     options.legend = {
         location: "right",
         align: "left"
@@ -112,7 +93,7 @@ function init() {
     options = getOptions("Custom formatters enabled");
     options.axes.x.legendValueFormatter = value => value + "s";
     options.axes.x.tickerValuePreFormatter = value => value * 2;
-    options.axes.x.tickerValuePostFormatter = value => value * 2;
+    options.axes.x.tickerValuePostFormatter = value => value / 2;
     options.axes.x.tickerLabelFormatter = value => value + "s";
     options.axes.y.legendValueFormatter = value => value + "dB";
     options.axes.y.tickerValuePreFormatter = value => value * 2;
@@ -148,6 +129,27 @@ function renderSimplify() {
         setTimeout(upd, 2000);
     }
     setTimeout(upd, 2000);
+}
+
+function getOptions(title) {
+    return {
+        offset: "5px 20px 5px 5px",
+        title: {
+            label: title
+        },
+        axes: {
+            x: {
+                label: "Frequency (Hz)",
+            },
+            y: {
+                label: "Amplitude (dB)",
+            }
+        },
+        graph: {
+            names: ["x", "Left", "Right"],
+            dataY
+        }
+    };
 }
 
 function addGraph(options, keepData, legendId) {

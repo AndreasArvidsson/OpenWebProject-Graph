@@ -1,4 +1,5 @@
 import Is from "./Is";
+import Static from "./Static";
 
 /** 
  * The Options class is the options and associated functions for the Graph class.
@@ -73,6 +74,7 @@ Options.prototype.getLegendFont = function () {
 Options.getDefault = function () {
     return {
         debug: false,
+        offset: "0 20px 0 0",
         interaction: {
             resize: true,
             trackMouse: true,
@@ -85,7 +87,7 @@ Options.getDefault = function () {
             size: 20,
             offsetX: 0,
             offsetY: 0,
-            padding: 5,
+            padding: 3,
             font: "verdana",
             color: "black",
             align: "center"
@@ -94,8 +96,9 @@ Options.getDefault = function () {
             location: "top",
             font: "Arial",
             size: 15,
-            offsetX: 10,
-            offsetY: 2,
+            offsetX: 0,
+            offsetY: 0,
+            padding: 2,
             align: "right",
             newLine: false
         },
@@ -140,13 +143,14 @@ Options.getDefault = function () {
                 font: "Arial",
                 size: 12,
                 width: 40,
-                offset: 2
+                offset: 3,
+                padding: 2
             },
             labels: {
                 color: "black",
                 font: "verdana",
                 size: 15,
-                offset: 3,
+                offset: 0,
                 padding: 0
             },
             x: {
@@ -243,6 +247,8 @@ Options.prototype.set = function (options) {
     setMembers(this, options, "");
 
     this._isOk = evalOptions(this);
+    this._offset = Static.calculateOffset(this.offset);
+    this._border = Static.calculateOffset(this.border.width);
 };
 
 /**
@@ -270,6 +276,22 @@ Options.prototype.renderMarkers = function() {
 Options.prototype.renderSimplify = function() {
     //Can't combined simplified rendering with markers.
     return this.graph.simplify && !this.renderMarkers();
+}
+
+/**
+ * Returns object with all 4 side offsets
+ * @public
+ */
+Options.prototype.getOffset = function() {
+    return this._offset;
+}
+
+/**
+ * Returns object with all 4 side borders
+ * @public
+ */
+Options.prototype.getBorder = function() {
+    return this._border;
 }
 
 /**
@@ -346,6 +368,9 @@ function evalOptions (options) {
     set("debug");
     evalType("bool");
 
+    set("offset");
+    evalType("int|offset");
+
     set("interaction");
     if (evalType("object")) {
         set("interaction.resize");
@@ -370,8 +395,9 @@ function evalOptions (options) {
         evalType("string");
 
         set("title.size");
-        evalType("int");
-        evalCond("obj > 0");
+        if (evalType("int")) {
+            evalCond("obj > 0");
+        }
 
         set("title.offsetX");
         evalType("int");
@@ -380,7 +406,9 @@ function evalOptions (options) {
         evalType("int");
 
         set("title.padding");
-        evalType("int");
+        if (evalType("int")) {
+            evalCond("obj >= 0");
+        }
 
         set("title.font");
         evalType("font");
@@ -406,11 +434,12 @@ function evalOptions (options) {
         }
 
         set("legend.offsetX");
-        if (evalType("int")) {
-            evalCond("obj >= 0");
-        }
+        evalType("int");
 
         set("legend.offsetY");
+        evalType("int");
+
+        set("legend.padding");
         if (evalType("int")) {
             evalCond("obj >= 0");
         }
@@ -592,6 +621,11 @@ function evalOptions (options) {
             if (evalType("int")) {
                 evalCond("obj >= 0");
             }
+
+            set("axes.tickLabels.padding");
+            if (evalType("int")) {
+                evalCond("obj >= 0");
+            }
         }
 
         set("axes.labels");
@@ -608,7 +642,9 @@ function evalOptions (options) {
             }
 
             set("axes.labels.offset");
-            evalType("int");
+            if (evalType("int")) {
+                evalCond("obj >= 0");
+            }
 
             set("axes.labels.padding");
             if (evalType("int")) {
@@ -631,14 +667,16 @@ function evalOptions (options) {
                 evalType("bool");
 
                 set(axes[i] + "." + (axes[i] === "axes.x" ? "height" : "width"));
-                evalType("int");
-                evalCond("obj >= 0");
+                if(evalType("int")) {
+                    evalCond("obj >= 0");
+                }
 
                 set(axes[i] + ".grid");
                 if (evalType("object")) {
                     set(axes[i] + ".grid.width");
-                    evalType("int");
-                    evalCond("obj >= 0");
+                    if(evalType("int")) {
+                        evalCond("obj >= 0");
+                    }
 
                     set(axes[i] + ".grid.color");
                     evalType("color");
@@ -675,7 +713,9 @@ function evalOptions (options) {
                 }
 
                 set(axes[i] + ".numTicks");
-                evalType("int");
+                if (evalType("int")) {
+                    evalCond("obj >= 0");
+                }
 
                 set(axes[i] + ".legendValueFormatter");
                 evalType("function|null");
@@ -691,7 +731,6 @@ function evalOptions (options) {
 
                 set(axes[i] + ".ticker");
                 evalType("function|null");
-
             }
         }
     }
@@ -787,6 +826,7 @@ function evalOptions (options) {
  @type {object}
 
  @property {bool} debug - If true debug info will be outputted to the console.
+ @property {int} offset - Offset in pixels. Between outer edge and inner content.
 
  @property {object} interaction - Options regarding user interaction with the graph.
  @property {bool} resize - If true the graph will be resized automatically.
@@ -809,8 +849,9 @@ function evalOptions (options) {
  @property {bool} legend.show - If true the legend is shown.
  @property {string} legend.font - Font family of the text.
  @property {int} legend.size - Font size/height in pixels.
- @property {int} legend.offsetX - Y-axis offset in pixels. Between legend and graph vertical side.
- @property {int} legend.offsetY - X-axis offset in pixels. Between legend and graph top.
+ @property {int} legend.offsetX - Y-axis offset in pixels. Move legend in x-axis.
+ @property {int} legend.offsetY - X-axis offset in pixels. Move legend in y-axis.
+ @property {int} legend.padding - Padding in pixels. Between legend and graph.
  @property {int} legend.align -  The legend alignment. ["left", "right"]
  @property {int} legend.newLine -  If true a new line is made between each data set.
 
@@ -856,7 +897,8 @@ function evalOptions (options) {
  @property {string} axes.tickLabels.font - Font family of the text.
  @property {int} axes.tickLabels.size - Font size/height in pixels of the text.
  @property {int} axes.tickLabels.width - Max width of the labels. Used to calculate ticks.
- @property {int} axes.tickLabels.offset - Offset in pixels. Between graph and markers.
+ @property {int} axes.tickLabels.offset - Offset in pixels. Between outer edge and tick labels.
+ @property {int} axes.tickLabels.padding - Padding in pixels. Between graph and markers.
 
  @property {object} axes.labels - Options regarding the axes labels.
  @property {string} axes.labels.color - Color of the text.

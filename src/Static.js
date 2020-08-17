@@ -104,4 +104,28 @@ Static.round = function (value, decimals) {
 
 Static.log10 = (x) => Math.log(x) / Math.LN10;
 
+Static.calculateOffset = function (offset) {
+    if (typeof offset === "number") {
+        return {
+            top: offset,
+            right: offset,
+            bottom: offset,
+            left: offset
+        };
+    }
+    const div = document.createElement("div");
+    div.style.margin = "";
+    div.style.margin = offset;
+    return {
+        top: pxToNum(div.style.marginTop),
+        right: pxToNum(div.style.marginRight),
+        bottom: pxToNum(div.style.marginBottom),
+        left: pxToNum(div.style.marginLeft)
+    }
+}
+
 export default Static;
+
+function pxToNum(str) {
+    return parseInt(str.replace("px", ""));
+}

@@ -226,13 +226,19 @@ Is.isBorderWidth = function (obj) {
     return div.style.borderWidth !== "";
 };
 
+Is.isOffset = function (obj) {
+    const div = document.createElement("div");
+    div.style.margin = "";
+    div.style.margin = obj;
+    return div.style.margin !== "";
+};
+
 Is.isBorderStyle = function (obj) {
     const div = document.createElement("div");
     div.style.borderStyle = "";
     div.style.borderStyle = obj;
     return div.style.borderStyle !== "";
 };
-
 
 /**
  * Get a callback to evaluate if the given data is of the specified type.
@@ -278,6 +284,8 @@ Is.getCompareCallback = function (type) {
             return Is.isDOM;
         case "null":
             return Is.isNull;
+        case "offset":
+            return Is.isOffset;
         default:
             throw new Error("Is.getCompareCallback: No compare typed found for: " + type);
     }
