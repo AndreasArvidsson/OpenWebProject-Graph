@@ -1,49 +1,60 @@
 {
     "name": "owp.graph",
+    "version": "3.0.0",
     "description": "High performance graph plotter",
-    "version": "2.6.1",
-    "main": "dist/owp.graph.min.js",
+    "keywords": [
+        "Open Web Project",
+        "graph",
+        "owp",
+        "plot"
+    ],
+    "homepage": "https://github.com/AndreasArvidsson/OpenWebProject-graph",
+    "bugs": {
+        "url": "https://github.com/AndreasArvidsson/OpenWebProject-graph/issues"
+    },
+    "license": "MIT",
+    "author": "Andreas Arvidsson",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/AndreasArvidsson/OpenWebProject-graph.git"
+    },
     "files": [
         "dist/*",
         "images/*"
     ],
+    "type": "module",
+    "main": "dist/index.js",
+    "types": "dist/index.d.ts",
+    "exports": {
+        ".": {
+            "types": "./dist/index.d.ts",
+            "import": "./dist/index.js"
+        },
+        "./style.css": "./dist/index.css"
+    },
     "scripts": {
-        "start": "webpack-dev-server --config webpack.config.js --mode development --bundle docs --port 9090 --open",
-        "buildProd": "webpack --config webpack.config.js --mode production --bundle dist",
-        "buildDev": "webpack --config webpack.config.js --mode development --bundle dist",
-        "buildDocs": "webpack --config webpack.config.js --mode production --bundle docs",
-        "build": "npm run buildProd && npm run buildDev && npm run buildDocs"
+        "clean": "rm -rf dist docs",
+        "build": "npm run build:dist && npm run build:docs && npm run build:types",
+        "build:types": "tsc",
+        "build:dist": "vite build -- --bundle dist",
+        "build:docs": "vite build -- --bundle docs",
+        "typecheck": "tsc --noEmit -p . && tsc --noEmit -p demo",
+        "lint": "npm run typecheck && npm run lint:ts && npm run lint:fmt",
+        "lint:ts": "oxlint -c oxlint.config.mts --deny-warnings .",
+        "lint:fmt": "oxfmt --check .",
+        "fix": "npm run fix:ts && npm run fix:fmt",
+        "fix:ts": "oxlint -c oxlint.config.mts --fix .",
+        "fix:fmt": "oxfmt ."
     },
-    "keywords": [
-        "graph",
-        "plot",
-        "Open Web Project",
-        "owp"
-    ],
-    "author": "Andreas Arvidsson",
-    "license": "MIT",
-    "homepage": "https://github.com/AndreasArvidsson/OpenWebProject-graph",
-    "repository": {
-        "type": "git",
-        "url": "https://github.com/AndreasArvidsson/OpenWebProject-graph.git"
+    "dependencies": {
+        "spin.js": "^4.1.2"
     },
-    "bugs": {
-        "url": "https://github.com/AndreasArvidsson/OpenWebProject-graph/issues"
-    },
-    "dependencies": {},
     "devDependencies": {
-        "webpack": "latest",
-        "webpack-cli": "latest",
-        "webpack-dev-server": "latest",
-        "html-webpack-plugin": "latest",
-        "mini-css-extract-plugin": "latest",
-        "babel-loader": "latest",
-        "css-loader": "latest",
-        "@babel/core": "latest",
-        "eslint-loader": "latest",
-        "file-loader": "latest",
-        "eslint": "latest",
-        "babel-eslint": "latest",
-        "bootstrap": "latest"
+        "@types/node": "^25.9.1",
+        "oxfmt": "^0.51.0",
+        "oxlint": "^1.64.0",
+        "oxlint-tsgolint": "^0.23.0",
+        "typescript": "^6.0.3",
+        "vite": "^8.0.14"
     }
 }

@@ -1,15 +1,35 @@
-import Graph from "../src/index";
+import Graph from "../src/index.js";
+import type {
+    GraphDataArray,
+    OptionsInput,
+    SimplifyMode,
+} from "../src/Options.type.js";
+import { createDummyData } from "./createDummyData.js";
+
+type DemoOptions = OptionsInput & {
+    title: NonNullable<OptionsInput["title"]> & { label: string };
+    axes: NonNullable<OptionsInput["axes"]> & {
+        x: NonNullable<NonNullable<OptionsInput["axes"]>["x"]>;
+        y: NonNullable<NonNullable<OptionsInput["axes"]>["y"]>;
+    };
+    graph: NonNullable<OptionsInput["graph"]> & {
+        names: string[];
+        dataX?: GraphDataArray[];
+        dataY?: GraphDataArray[];
+    };
+};
 
 const root = document.getElementById("root");
 const dataSize = 200;
-const dataY = Graph.createDummyData(dataSize);
-const simpleDataX = [[100, 200, 400]];
-const simpleDataY = [[1, 4, 2], [2, 3, 0.5]];
+const dataY = createDummyData(dataSize);
+const simpleDataX: GraphDataArray[] = [[100, 200, 400]];
+const simpleDataY: GraphDataArray[] = [
+    [1, 4, 2],
+    [2, 3, 0.5],
+];
 
-function init() {
-    let options;
-
-    options = getOptions("Simple example");
+export function initExamples(): void {
+    let options = getOptions("Simple example");
     options.graph.dataX = simpleDataX;
     options.graph.dataY = simpleDataY;
     addGraph(options, true);
@@ -35,14 +55,14 @@ function init() {
     options.graph.dataY = simpleDataY;
     options.graph.lineWidth = 1;
     options.graph.markerRadius = 5;
-    options.graph.dashed = [false, [1]]
-    addGraph(options, undefined);
+    options.graph.dashed = [false, [1]];
+    addGraph(options);
 
     options = getOptions("Legend right");
-    options.offset =  "5px 0px 5px 5px";
+    options.offset = "5px 0px 5px 5px";
     options.legend = {
         location: "right",
-        align: "left"
+        align: "left",
     };
     addGraph(options);
 
@@ -50,7 +70,7 @@ function init() {
     const legendId = "legendId";
     options.legend = {
         location: legendId,
-        align: "left"
+        align: "left",
     };
     addGraph(options, false, legendId);
 
@@ -62,7 +82,7 @@ function init() {
         xMin: 50,
         xMax: 150,
         yMin: -0.7,
-        yMax: 0.2
+        yMax: 0.2,
     };
 
     options = getOptions("Highlighting enabled");
@@ -76,44 +96,52 @@ function init() {
     options = getOptions("Bounds set");
     options.axes.x.bounds = {
         min: bounds.xMin,
-        max: bounds.xMax
+        max: bounds.xMax,
     };
     options.axes.y.bounds = {
         min: bounds.yMin,
-        max: bounds.yMax
+        max: bounds.yMax,
     };
     addGraph(options);
 
     options = getOptions("Spinner enabled");
     options.spinner = {
-        show: true
+        show: true,
     };
     addGraph(options);
 
     options = getOptions("Custom formatters enabled");
-    options.axes.x.legendValueFormatter = value => value + "s";
-    options.axes.x.tickerValuePreFormatter = value => value * 2;
-    options.axes.x.tickerValuePostFormatter = value => value / 2;
-    options.axes.x.tickerLabelFormatter = value => value + "s";
-    options.axes.y.legendValueFormatter = value => value + "dB";
-    options.axes.y.tickerValuePreFormatter = value => value * 2;
-    options.axes.y.tickerValuePostFormatter = value => value / 2;
-    options.axes.y.tickerLabelFormatter = value => value + "dB";
+    options.axes.x.legendValueFormatter = (value: number): string =>
+        `${value}s`;
+    options.axes.x.tickerValuePreFormatter = (value: number): number =>
+        value * 2;
+    options.axes.x.tickerValuePostFormatter = (value: number): number =>
+        value / 2;
+    options.axes.x.tickerLabelFormatter = (value: number): string =>
+        `${value}s`;
+    options.axes.y.legendValueFormatter = (value: number): string =>
+        `${value}dB`;
+    options.axes.y.tickerValuePreFormatter = (value: number): number =>
+        value * 2;
+    options.axes.y.tickerValuePostFormatter = (value: number): number =>
+        value / 2;
+    options.axes.y.tickerLabelFormatter = (value: number): string =>
+        `${value}dB`;
     addGraph(options);
 
     renderSimplify();
 }
 
-function renderSimplify() {
+function renderSimplify(): void {
     const options = getOptions("Simplify 0.1 minMax");
     options.axes.x.log = true;
-    options.graph.dataY = Graph.createDummyData(2 ** 15, "float");
+    options.graph.dataY = createDummyData(2 ** 15);
     const graph = addGraph(options);
     const levels = [0.1, 0.5, 1];
-    const types = ["minMax", "avg", "min", "max"];
+    const types: SimplifyMode[] = ["minMax", "avg", "min", "max"];
     let i = 0;
     let j = 0;
-    function upd() {
+    const upd = (): void => {
         ++i;
         if (i === levels.length) {
             i = 0;
@@ -127,15 +155,15 @@ function renderSimplify() {
         options.title.label = `Simplify ${options.graph.simplify} ${options.graph.simplifyBy}`;
         graph.setOptions(options);
         setTimeout(upd, 2000);
-    }
+    };
     setTimeout(upd, 2000);
 }
 
-function getOptions(title) {
+function getOptions(title: string): DemoOptions {
     return {
         offset: "5px 20px 5px 5px",
         title: {
-            label: title
+            label: title,
         },
         axes: {
             x: {
@@ -143,64 +171,67 @@ function getOptions(title) {
             },
             y: {
                 label: "Amplitude (dB)",
-            }
+            },
         },
         graph: {
             names: ["x", "Left", "Right"],
-            dataY
-        }
+            dataY,
+        },
     };
 }
 
-function addGraph(options, keepData, legendId) {
-    if (legendId) {
+function addGraph(
+    options: OptionsInput,
+    keepData?: boolean,
+    legendId?: string,
+): Graph {
+    if (legendId != null) {
         const legendDiv = document.createElement("div");
         legendDiv.className = "legendDiv";
         legendDiv.id = legendId;
-        root.appendChild(legendDiv);
+        root?.append(legendDiv);
     }
 
     const div = document.createElement("div");
     div.className = "graph-divs";
-    root.appendChild(div);
+    root?.append(div);
 
-    const res = Graph(div, options);
+    const res = new Graph(div, options);
 
     const button = document.createElement("button");
     button.className = "btn btn-primary";
-    button.innerText = "Show code";
-    root.appendChild(button);
+    button.textContent = "Show code";
+    root?.append(button);
 
     let json;
     if (keepData) {
         json = JSON.stringify(options, null, 4);
-    }
-    else {
-        const dataY = options.graph.dataY;
+    } else if (options.graph?.dataY != null) {
+        const storedDataY = options.graph.dataY;
         options.graph.dataY = [];
         json = JSON.stringify(options, null, 4);
-        json = json.replace("[]", `Graph.createDummyData(${dataSize})`);
-        options.graph.dataY = dataY;
+        json = json.replace(
+            "[]",
+            `/* random demo data */ createDummyData(${dataSize})`,
+        );
+        options.graph.dataY = storedDataY;
     }
 
     const code = document.createElement("pre");
     code.className = "code";
     code.style.display = "none";
-    code.innerText = json;
-    root.appendChild(code);
+    code.textContent = json ?? "";
+    root?.append(code);
 
     button.addEventListener("click", () => {
         if (code.style.display === "none") {
             code.style.display = "block";
-            button.innerText = "Hide code";
-        }
-        else {
+            button.textContent = "Hide code";
+        } else {
             code.style.display = "none";
-            button.innerText = "Show code";
+            button.textContent = "Show code";
         }
     });
 
     return res;
 }
-
-export default { init };

@@ -1,0 +1,14 @@
+{
+    "compilerOptions": {
+        "module": "esnext",
+        "target": "esnext",
+        "moduleResolution": "bundler",
+        "types": ["node", "vite/client"],
+        "strict": true,
+        "skipLibCheck": true,
+        "noEmitOnError": true,
+        "forceConsistentCasingInFileNames": true,
+        "noImplicitAny": true,
+        "noImplicitReturns": true
+    }
+}

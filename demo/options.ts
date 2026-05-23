@@ -1,14 +1,15 @@
-import Graph from "../src/index";
+import Graph from "../src/index.js";
 
 const root = document.getElementById("root");
 
-function init() {
+export function initOptions(): void {
+    if (root == null) {
+        throw new Error("Root element not found");
+    }
     const options = Graph.getDefaultOptions();
     const json = JSON.stringify(options, null, 4);
     const code = document.createElement("pre");
     code.className = "code";
-    code.innerText = json;
-    root.appendChild(code);
+    code.textContent = json;
+    root.append(code);
 }
-
-export default { init };

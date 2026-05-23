@@ -1,57 +1,111 @@
-import Static from "./Static";
+import type { Canvas } from "./Canvas.js";
+import type { Options } from "./Options.js";
+import type { GraphDataArray, SimplifyMode } from "./Options.type.js";
+import { binarySearch } from "./util/binarySearch.js";
 
-const Callbacks = {};
+type ValueCallback = (index: number) => number;
+type ValueToPixelCallback = (value: number) => number;
 
-Callbacks.getRenderCallback = function (options, canvas, axes) {
-    //Get value to pixel functions.
+interface Axis {
+    getValueToPixelCallback(): ValueToPixelCallback;
+    getMin(): number;
+    getMax(): number;
+}
+
+interface Axes {
+    x: Axis;
+    y: Axis;
+}
+
+type RenderFunction = (
+    ctx: CanvasRenderingContext2D,
+    valueToPixelX: ValueToPixelCallback,
+    valueToPixelY: ValueToPixelCallback,
+    getDataX: ValueCallback,
+    getDataY: ValueCallback,
+    start: number,
+    end: number,
+) => void;
+
+export function getRenderCallback(
+    options: Options,
+    canvas: Canvas,
+    axes: Axes,
+): (channelIndex: number) => void {
+    // Get value to pixel functions.
     const valueToPixelX = axes.x.getValueToPixelCallback();
     const valueToPixelY = axes.y.getValueToPixelCallback();
-    //Value bounds.    
+    // Value bounds.
     const min = axes.x.getMin();
     const max = axes.x.getMax();
-    //Context
+    // Context
     const ctx = canvas.getContext();
-    //Callbacks
-    const renderCallback = getRenderCallback(options);
+    // Callbacks
+    const renderCallback = getRenderFunction(options);
     const strokeCallback = getStrokeCallback(options, canvas);
-    return channelIndex => {
-        //Aquire callback for getting X-axis data values.
+    return (channelIndex: number) => {
+        // Aquire callback for getting X-axis data values.
         const getDataX = getDataCallback(options, "x", channelIndex);
-        //Find start and end indicies.
+        // Find start and end indicies.
         const length = options.graph.dataY[channelIndex].length;
-        const bsMin = Static.binarySearch(getDataX, length, min);
-        const bsMax = Static.binarySearch(getDataX, length, max);
-        let start = bsMin.found !== undefined ? bsMin.found : bsMin.min;
-        let end = bsMax.found !== undefined ? bsMax.found : bsMax.max;
-        //Aquire callback for getting Y-axis data values.
+        const bsMin = binarySearch(getDataX, length, min);
+        const bsMax = binarySearch(getDataX, length, max);
+        const start = bsMin.found ?? bsMin.min;
+        const end = bsMax.found ?? bsMax.max;
+        // Aquire callback for getting Y-axis data values.
         const getDataY = getDataCallback(options, "y", channelIndex, start);
-        //Start path.    
+        // Start path.
         ctx.beginPath();
-        //Render points/lines.
-        renderCallback(ctx, valueToPixelX, valueToPixelY, getDataX, getDataY, start, end);
-        //Stroke line.
+        // Render points/lines.
+        renderCallback(
+            ctx,
+            valueToPixelX,
+            valueToPixelY,
+            getDataX,
+            getDataY,
+            start,
+            end,
+        );
+        // Stroke line.
         strokeCallback(ctx, channelIndex);
-    }
-};
+    };
+}
 
-Callbacks.getCalculateValueCallback = function (options, axes, dataY, getDataX, channelIndex, start) {
-    const useSimplify = options.renderSimplify() && (options.graph.simplify > 0.1 || options.graph.simplifyBy !== "minMax");
+export function getCalculateValueCallback(
+    options: Options,
+    axes: Axes,
+    dataY: GraphDataArray,
+    getDataX: ValueCallback,
+    channelIndex: number,
+    start: number,
+): ValueCallback {
+    const useSimplify =
+        options.renderSimplify() &&
+        (options.graph.simplify > 0.1 || options.graph.simplifyBy !== "minMax");
     if (useSimplify) {
         const valueToPixelX = axes.x.getValueToPixelCallback();
         const getDataY = getDataCallback(options, "y", channelIndex, start);
-        return getCalculateSimplifyCallback(options.graph.simplifyBy)
-            .bind(null, dataY.length, getDataX, getDataY, valueToPixelX, options.graph.simplify);
+        return getCalculateSimplifyCallback(options.graph.simplifyBy).bind(
+            null,
+            dataY.length,
+            getDataX,
+            getDataY,
+            valueToPixelX,
+            options.graph.simplify,
+        );
+    } else if (options.graph.smoothing) {
+        return calculateSmothingValue.bind(
+            null,
+            options.graph.smoothing,
+            dataY,
+        );
     }
-    else if (options.graph.smoothing) {
-        return calculateSmothingValue.bind(null, options.graph.smoothing, dataY);
-    }
-    return index => dataY[index];
+    return (index: number) => dataY[index];
 }
-
 
 /* *************** RENDER CALLBACKS *************** */
 
-function getRenderCallback(options) {
+function getRenderFunction(options: Options): RenderFunction {
     if (options.renderSimplify()) {
         const simplify = options.graph.simplify;
         switch (options.graph.simplifyBy) {
@@ -63,92 +117,126 @@ function getRenderCallback(options) {
                 return renderMax.bind(null, simplify);
             case "minMax":
                 return renderMinMax.bind(null, simplify);
+            // No default
         }
     }
     return renderFull.bind(
         null,
-        !!options.graph.lineWidth,
+        Boolean(options.graph.lineWidth),
         options.renderMarkers(),
-        options.graph.markerRadius
+        options.graph.markerRadius,
     );
 }
 
-function renderAvg(simplify, ctx, valueToPixelX, valueToPixelY, getDataX, getDataY, start, end) {
+function renderAvg(
+    simplify: number,
+    ctx: CanvasRenderingContext2D,
+    valueToPixelX: ValueToPixelCallback,
+    valueToPixelY: ValueToPixelCallback,
+    getDataX: ValueCallback,
+    getDataY: ValueCallback,
+    start: number,
+    end: number,
+): void {
     const abs = Math.abs;
     let oldX = valueToPixelX(getDataX(start));
     let sum = getDataY(start);
     let count = 1;
-    //We have already counted first value;
+    // We have already counted first value;
     ++start;
     for (; start <= end; ++start) {
         const newX = valueToPixelX(getDataX(start));
         if (abs(newX - oldX) < simplify) {
             sum += getDataY(start);
             ++count;
-        }
-        else {
+        } else {
             ctx.lineTo(oldX, valueToPixelY(sum / count));
             oldX = newX;
             sum = getDataY(start);
             count = 1;
         }
     }
-    //Needed to add the last step.
+    // Needed to add the last step.
     ctx.lineTo(oldX, valueToPixelY(sum / count));
 }
 
-function renderMin(simplify, ctx, valueToPixelX, valueToPixelY, getDataX, getDataY, start, end) {
+function renderMin(
+    simplify: number,
+    ctx: CanvasRenderingContext2D,
+    valueToPixelX: ValueToPixelCallback,
+    valueToPixelY: ValueToPixelCallback,
+    getDataX: ValueCallback,
+    getDataY: ValueCallback,
+    start: number,
+    end: number,
+): void {
     const abs = Math.abs;
     const min = Math.min;
     let oldX = valueToPixelX(getDataX(start));
     let minVal = getDataY(start);
-    //We have already counted first value;
+    // We have already counted first value;
     ++start;
     for (; start <= end; ++start) {
         const newX = valueToPixelX(getDataX(start));
         if (abs(newX - oldX) < simplify) {
             minVal = min(minVal, getDataY(start));
-        }
-        else {
+        } else {
             ctx.lineTo(oldX, valueToPixelY(minVal));
             oldX = newX;
             minVal = getDataY(start);
         }
     }
-    //Needed to add the last step.
+    // Needed to add the last step.
     ctx.lineTo(oldX, valueToPixelY(minVal));
 }
 
-function renderMax(simplify, ctx, valueToPixelX, valueToPixelY, getDataX, getDataY, start, end) {
+function renderMax(
+    simplify: number,
+    ctx: CanvasRenderingContext2D,
+    valueToPixelX: ValueToPixelCallback,
+    valueToPixelY: ValueToPixelCallback,
+    getDataX: ValueCallback,
+    getDataY: ValueCallback,
+    start: number,
+    end: number,
+): void {
     const abs = Math.abs;
     const max = Math.max;
     let oldX = valueToPixelX(getDataX(start));
     let maxVal = getDataY(start);
-    //We have already counted first value;
+    // We have already counted first value;
     ++start;
     for (; start <= end; ++start) {
         const newX = valueToPixelX(getDataX(start));
         if (abs(newX - oldX) < simplify) {
             maxVal = max(maxVal, getDataY(start));
-        }
-        else {
+        } else {
             ctx.lineTo(oldX, valueToPixelY(maxVal));
             oldX = newX;
             maxVal = getDataY(start);
         }
     }
-    //Needed to add the last step.
+    // Needed to add the last step.
     ctx.lineTo(oldX, valueToPixelY(maxVal));
 }
 
-function renderMinMax(simplify, ctx, valueToPixelX, valueToPixelY, getDataX, getDataY, start, end) {
+function renderMinMax(
+    simplify: number,
+    ctx: CanvasRenderingContext2D,
+    valueToPixelX: ValueToPixelCallback,
+    valueToPixelY: ValueToPixelCallback,
+    getDataX: ValueCallback,
+    getDataY: ValueCallback,
+    start: number,
+    end: number,
+): void {
     const abs = Math.abs;
     const min = Math.min;
     const max = Math.max;
     let oldX = valueToPixelX(getDataX(start));
     let minVal = getDataY(start);
     let maxVal = minVal;
-    //We have already counted first value;
+    // We have already counted first value;
     ++start;
     for (; start <= end; ++start) {
         const newX = valueToPixelX(getDataX(start));
@@ -156,10 +244,9 @@ function renderMinMax(simplify, ctx, valueToPixelX, valueToPixelY, getDataX, get
             const valueY = getDataY(start);
             minVal = min(minVal, valueY);
             maxVal = max(maxVal, valueY);
-        }
-        else {
+        } else {
             ctx.lineTo(oldX, valueToPixelY(minVal));
-            //Only add the second point if it differs from the first.
+            // Only add the second point if it differs from the first.
             if (minVal !== maxVal) {
                 ctx.lineTo(oldX, valueToPixelY(maxVal));
             }
@@ -168,16 +255,27 @@ function renderMinMax(simplify, ctx, valueToPixelX, valueToPixelY, getDataX, get
             maxVal = minVal;
         }
     }
-    //Needed to add the last step.
+    // Needed to add the last step.
     ctx.lineTo(oldX, valueToPixelY(minVal));
     if (minVal !== maxVal) {
         ctx.lineTo(oldX, valueToPixelY(maxVal));
     }
 }
 
-function renderFull(renderLine, renderMarkers, markerRadius, ctx, valueToPixelX, valueToPixelY, getDataX, getDataY, start, end) {
+function renderFull(
+    renderLine: boolean,
+    renderMarkers: boolean,
+    markerRadius: number,
+    ctx: CanvasRenderingContext2D,
+    valueToPixelX: ValueToPixelCallback,
+    valueToPixelY: ValueToPixelCallback,
+    getDataX: ValueCallback,
+    getDataY: ValueCallback,
+    start: number,
+    end: number,
+): void {
     const circleAngle = 2 * Math.PI;
-    //Render line and markers
+    // Render line and markers
     if (renderLine && renderMarkers) {
         for (; start <= end; ++start) {
             const x = valueToPixelX(getDataX(start));
@@ -188,16 +286,16 @@ function renderFull(renderLine, renderMarkers, markerRadius, ctx, valueToPixelX,
             ctx.moveTo(x, y);
         }
     }
-    //Render only line
+    // Render only line
     else if (renderLine) {
         for (; start <= end; ++start) {
             ctx.lineTo(
                 valueToPixelX(getDataX(start)),
-                valueToPixelY(getDataY(start))
+                valueToPixelY(getDataY(start)),
             );
         }
     }
-    //Render only markers
+    // Render only markers
     else if (renderMarkers) {
         for (; start <= end; ++start) {
             const x = valueToPixelX(getDataX(start));
@@ -208,27 +306,36 @@ function renderFull(renderLine, renderMarkers, markerRadius, ctx, valueToPixelX,
     }
 }
 
-
 /* *************** STROKES CALLBACK *************** */
 
-function getStrokeCallback(options, canvas) {
-    //Fill graph
+function getStrokeCallback(
+    options: Options,
+    canvas: Canvas,
+): (ctx: CanvasRenderingContext2D, channelIndex: number) => void {
+    // Fill graph
     if (options.graph.fill) {
         return renderFill.bind(null, options, canvas);
     }
-    //Stroke line.
+    // Stroke line.
     return renderStroke.bind(null, options);
 }
 
-function renderFill(options, canvas, ctx, channelIndex) {
-    //Render line
+function renderFill(
+    options: Options,
+    canvas: Canvas,
+    ctx: CanvasRenderingContext2D,
+    channelIndex: number,
+): void {
+    // Render line
     if (options.graph.lineWidth) {
         if (options.axes.x.inverted) {
             ctx.lineTo(0, canvas.getContentHeight());
             ctx.lineTo(canvas.getContentWidth(), canvas.getContentHeight());
-        }
-        else {
-            ctx.lineTo(canvas.getContentWidth() * canvas.getRatio(), canvas.getContentHeight() * canvas.getRatio());
+        } else {
+            ctx.lineTo(
+                canvas.getContentWidth() * canvas.getRatio(),
+                canvas.getContentHeight() * canvas.getRatio(),
+            );
             ctx.lineTo(0, canvas.getContentHeight() * canvas.getRatio());
         }
         ctx.closePath();
@@ -237,16 +344,20 @@ function renderFill(options, canvas, ctx, channelIndex) {
     ctx.fill();
 }
 
-function renderStroke(options, ctx, channelIndex) {
-    //Set dashed options
+function renderStroke(
+    options: Options,
+    ctx: CanvasRenderingContext2D,
+    channelIndex: number,
+): void {
+    // Set dashed options
+    // oxlint-disable-next-line typescript/strict-boolean-expressions
     if (options.graph.dashed[channelIndex]) {
         let pattern = options.graph.dashed[channelIndex];
         if (pattern === true) {
             pattern = [5, 8];
         }
         ctx.setLineDash(pattern);
-    }
-    else {
+    } else {
         ctx.setLineDash([]);
     }
 
@@ -254,10 +365,20 @@ function renderStroke(options, ctx, channelIndex) {
     ctx.stroke();
 }
 
-
 /* *************** CALCULATE VALUES CALLBACKS *************** */
 
-function getCalculateSimplifyCallback(simplifyBy) {
+type SimplifyValueCallback = (
+    length: number,
+    getDataX: ValueCallback,
+    getDataY: ValueCallback,
+    valueToPixelX: ValueToPixelCallback,
+    simplify: number,
+    index: number,
+) => number;
+
+function getCalculateSimplifyCallback(
+    simplifyBy: SimplifyMode,
+): SimplifyValueCallback {
     switch (simplifyBy) {
         case "avg":
             return calculateAvgValue;
@@ -267,10 +388,21 @@ function getCalculateSimplifyCallback(simplifyBy) {
             return calculateMaxValue;
         case "minMax":
             return calculateMinMaxValue;
+        default: {
+            const _exhaustiveCheck: never = simplifyBy;
+            throw new Error("Unknown simplifyBy value");
+        }
     }
 }
 
-function calculateAvgValue(length, getDataX, getDataY, valueToPixelX, simplify, index) {
+function calculateAvgValue(
+    length: number,
+    getDataX: ValueCallback,
+    getDataY: ValueCallback,
+    valueToPixelX: ValueToPixelCallback,
+    simplify: number,
+    index: number,
+): number {
     const abs = Math.abs;
     const oldX = valueToPixelX(getDataX(index));
     let sum = getDataY(index);
@@ -280,8 +412,7 @@ function calculateAvgValue(length, getDataX, getDataY, valueToPixelX, simplify, 
         if (abs(newX - oldX) < simplify) {
             sum += getDataY(i);
             ++count;
-        }
-        else {
+        } else {
             break;
         }
     }
@@ -290,15 +421,21 @@ function calculateAvgValue(length, getDataX, getDataY, valueToPixelX, simplify, 
         if (abs(newX - oldX) < simplify) {
             sum += getDataY(i);
             ++count;
-        }
-        else {
+        } else {
             break;
         }
     }
     return sum / count;
 }
 
-function calculateMinValue(length, getDataX, getDataY, valueToPixelX, simplify, index) {
+function calculateMinValue(
+    length: number,
+    getDataX: ValueCallback,
+    getDataY: ValueCallback,
+    valueToPixelX: ValueToPixelCallback,
+    simplify: number,
+    index: number,
+): number {
     const abs = Math.abs;
     const min = Math.min;
     const oldX = valueToPixelX(getDataX(index));
@@ -307,8 +444,7 @@ function calculateMinValue(length, getDataX, getDataY, valueToPixelX, simplify, 
         const newX = valueToPixelX(getDataX(i));
         if (abs(newX - oldX) < simplify) {
             minVal = min(minVal, getDataY(i));
-        }
-        else {
+        } else {
             break;
         }
     }
@@ -316,15 +452,21 @@ function calculateMinValue(length, getDataX, getDataY, valueToPixelX, simplify, 
         const newX = valueToPixelX(getDataX(i));
         if (abs(newX - oldX) < simplify) {
             minVal = min(minVal, getDataY(i));
-        }
-        else {
+        } else {
             break;
         }
     }
     return minVal;
 }
 
-function calculateMaxValue(length, getDataX, getDataY, valueToPixelX, simplify, index) {
+function calculateMaxValue(
+    length: number,
+    getDataX: ValueCallback,
+    getDataY: ValueCallback,
+    valueToPixelX: ValueToPixelCallback,
+    simplify: number,
+    index: number,
+): number {
     const abs = Math.abs;
     const max = Math.max;
     const oldX = valueToPixelX(getDataX(index));
@@ -333,8 +475,7 @@ function calculateMaxValue(length, getDataX, getDataY, valueToPixelX, simplify, 
         const newX = valueToPixelX(getDataX(i));
         if (abs(newX - oldX) < simplify) {
             maxVal = max(maxVal, getDataY(i));
-        }
-        else {
+        } else {
             break;
         }
     }
@@ -342,47 +483,52 @@ function calculateMaxValue(length, getDataX, getDataY, valueToPixelX, simplify, 
         const newX = valueToPixelX(getDataX(i));
         if (abs(newX - oldX) < simplify) {
             maxVal = max(maxVal, getDataY(i));
-        }
-        else {
+        } else {
             break;
         }
     }
     return maxVal;
 }
 
-function calculateMinMaxValue(length, getDataX, getDataY, valueToPixelX, simplify, index) {
-    const abs = Math.abs;
-    const min = Math.min;
-    const max = Math.max;
+function calculateMinMaxValue(
+    length: number,
+    getDataX: ValueCallback,
+    getDataY: ValueCallback,
+    valueToPixelX: ValueToPixelCallback,
+    simplify: number,
+    index: number,
+): number {
     const oldX = valueToPixelX(getDataX(index));
     let minVal = getDataY(index);
     let maxVal = minVal;
     for (let i = index + 1; i < length; ++i) {
         const newX = valueToPixelX(getDataX(i));
-        if (abs(newX - oldX) < simplify) {
+        if (Math.abs(newX - oldX) < simplify) {
             const value = getDataY(i);
-            minVal = min(minVal, value);
-            maxVal = max(maxVal, value);
-        }
-        else {
+            minVal = Math.min(minVal, value);
+            maxVal = Math.max(maxVal, value);
+        } else {
             break;
         }
     }
     for (let i = index - 1; i > -1; --i) {
         const newX = valueToPixelX(getDataX(i));
-        if (abs(newX - oldX) < simplify) {
+        if (Math.abs(newX - oldX) < simplify) {
             const value = getDataY(i);
-            minVal = min(minVal, value);
-            maxVal = max(maxVal, value);
-        }
-        else {
+            minVal = Math.min(minVal, value);
+            maxVal = Math.max(maxVal, value);
+        } else {
             break;
         }
     }
-    return abs(minVal) > maxVal ? minVal : maxVal;
+    return Math.abs(minVal) > maxVal ? minVal : maxVal;
 }
 
-function calculateSmothingValue(smoothing, dataY, index) {
+function calculateSmothingValue(
+    smoothing: number,
+    dataY: GraphDataArray,
+    index: number,
+): number {
     const window = getSmoothingWindow(index, smoothing, dataY.length);
     let sum = 0;
     while (window.low <= window.high) {
@@ -393,44 +539,53 @@ function calculateSmothingValue(smoothing, dataY, index) {
 
 /* *************** GET DATA CALLBACK *************** */
 
-function getDataCallback(options, axis, dataIndex, start) {
-    let data;
-    //X-axis.
+export function getDataCallback(
+    options: Options,
+    axis: string,
+    dataIndex: number,
+    start = 0,
+): ValueCallback {
+    let data: GraphDataArray | null = null;
+    // X-axis.
     if (axis.toLowerCase() === "x") {
-        //Has no dataX. Return index + 1.
+        // Has no dataX. Return index + 1.
         if (options.graph.dataX.length === 0) {
-            return index => index + 1;
+            return (index: number) => index + 1;
         }
-        //Have one dataX for all dataY. 
+        // Have one dataX for all dataY.
         if (options.graph.dataX.length === 1) {
             data = options.graph.dataX[0];
         }
-        //Have one dataX for each dataY. 
+        // Have one dataX for each dataY.
         else {
             data = options.graph.dataX[dataIndex];
         }
     }
-    //Y-axis.
+    // Y-axis.
     else if (axis.toLowerCase() === "y") {
         data = options.graph.dataY[dataIndex];
-        //Use smoothing.
+        // Use smoothing.
         if (options.graph.smoothing) {
             return getDataCallbackSmoothing(options, start, data);
         }
+    } else {
+        console.error(`owp.graph ERROR: Unknown axis: ${axis}`);
     }
-    else {
-        console.error("owp.graph ERROR: Unknown axis: " + axis);
-    }
-    //Default
-    return function (index) {
-        return data[index];
-    };
+    // Default = 0
+    return (index: number) => (data == null ? 0 : data[index]);
 }
-Callbacks.getDataCallback = getDataCallback;
 
-function getDataCallbackSmoothing(options, start, data) {
+function getDataCallbackSmoothing(
+    options: Options,
+    start: number,
+    data: GraphDataArray,
+): ValueCallback {
     const centralIndex = Math.max(0, start - 1);
-    const window = getSmoothingWindow(centralIndex, options.graph.smoothing, data.length);
+    const window = getSmoothingWindow(
+        centralIndex,
+        options.graph.smoothing,
+        data.length,
+    );
     let low = window.low;
     let high = window.high;
     let sum = 0;
@@ -438,8 +593,8 @@ function getDataCallbackSmoothing(options, start, data) {
         sum += data[i];
     }
     const threshold = 2 * options.graph.smoothing;
-    return index => {
-        //Decrease window size.
+    return (index: number) => {
+        // Decrease window size.
         if (high === data.length - 1) {
             low = index + index - high;
             sum = 0;
@@ -447,7 +602,7 @@ function getDataCallbackSmoothing(options, start, data) {
                 sum += data[i];
             }
         }
-        //Increase window size.
+        // Increase window size.
         else if (high < threshold) {
             high = index + index - low;
             sum = 0;
@@ -455,33 +610,34 @@ function getDataCallbackSmoothing(options, start, data) {
                 sum += data[i];
             }
         }
-        //Move window.
+        // Move window.
         else {
             sum -= data[low];
             ++low;
             ++high;
             sum += data[high];
         }
-        //Calculate average value.
+        // Calculate average value.
         return sum / (high - low + 1);
     };
 }
 
-
 /* *************** MISC *************** */
 
-function getSmoothingWindow(index, smoothing, length) {
-    //Distance to list start.
+function getSmoothingWindow(
+    index: number,
+    smoothing: number,
+    length: number,
+): { low: number; high: number; length: number } {
+    // Distance to list start.
     const diffToMin = Math.max(0, index);
-    //Distance to list end.
+    // Distance to list end.
     const diffToMax = length - 1 - index;
-    //Shortest distance of min, max and smoothing window.
+    // Shortest distance of min, max and smoothing window.
     const diff = Math.min(diffToMin, diffToMax, smoothing);
     return {
         low: index - diff,
         high: index + diff,
-        length: 2 * diff + 1
+        length: 2 * diff + 1,
     };
 }
-
-export default Callbacks;
