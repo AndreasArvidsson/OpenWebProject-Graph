@@ -1,4 +1,4 @@
-import Graph from "../src/index.js";
+import { getDefaultOptions } from "../src/index.js";
 
 const root = document.getElementById("root");
 
@@ -6,7 +6,7 @@ export function initOptions(): void {
     if (root == null) {
         throw new Error("Root element not found");
     }
-    const options = Graph.getDefaultOptions();
+    const options = getDefaultOptions();
     const json = JSON.stringify(options, null, 4);
     const code = document.createElement("pre");
     code.className = "code";

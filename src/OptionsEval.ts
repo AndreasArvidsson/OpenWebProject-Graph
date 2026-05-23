@@ -1,11 +1,11 @@
-import type { Options } from "./Options.js";
+import type { FullOptions } from "./Options.type.js";
 import type { ValueTypes } from "./util/Is.js";
 import { isAlignment, isContent, isOfType } from "./util/Is.js";
 
 /**
  * Evaluates the options and sets ok status flag.
  */
-export function evalOptions(options: Options): boolean {
+export function evalOptions(options: FullOptions): boolean {
     let optionsOk = true;
 
     function error(path: string, msg: string, value?: unknown): void {

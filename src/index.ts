@@ -9,7 +9,7 @@ import { getRenderCallback } from "./Callbacks.js";
 import { Canvas } from "./Canvas.js";
 import { Interaction } from "./Interaction.js";
 import { Options } from "./Options.js";
-import type { OptionsInput } from "./Options.type.js";
+import type { PartialOptions, FullOptions } from "./Options.type.js";
 import { getDefaultOptions } from "./util/getDefaultOptions.js";
 
 type GraphValues = number[];
@@ -23,7 +23,8 @@ interface GraphCanvases {
     legend?: Canvas;
 }
 
-export type { OptionsInput as Options };
+export { getDefaultOptions };
+export type { PartialOptions, FullOptions };
 
 /**
  * The Graph class is a 2D graph plotter.
@@ -32,20 +33,28 @@ export type { OptionsInput as Options };
  */
 // oxlint-disable-next-line import/no-default-export
 export default class Graph {
-    public static getDefaultOptions = getDefaultOptions;
-
+    /** @internal */
     public readonly axes: { x: Axis; y: Axis };
+    /** @internal */
     public readonly canvas: GraphCanvases;
-    public readonly container: HTMLElement;
-    private hasCalculatedGraphSize = false;
-    private readonly interaction: Interaction;
+    /** @internal */
     public readonly options: Options;
-    private spinner: Spinner | null = null;
-    private spinnerDiv: HTMLDivElement | null = null;
+    /** @internal */
+    public readonly container: HTMLElement;
+    /** @internal */
+    private readonly interaction: Interaction;
+    /** @internal */
+    private disposed = false;
+    /** @internal */
+    private hasCalculatedGraphSize = false;
+    /** @internal */
+    private spinner?: Spinner;
+    /** @internal */
+    private spinnerDiv?: HTMLDivElement;
 
     public constructor(
         container: HTMLElement | string,
-        options?: OptionsInput,
+        options?: PartialOptions,
     ) {
         const element: HTMLElement | null =
             typeof container === "string"
@@ -82,47 +91,72 @@ export default class Graph {
 
         this.interaction = new Interaction(this);
 
-        if (options) {
-            this.setOptions(options);
-        } else {
+        if (options == null) {
             console.warn("owp.graph WARNING: No options set. Uses default.");
-            this.setOptions({});
         }
+
+        this.setOptions(options);
+    }
+
+    /**
+     * Dispose of the graph and remove all event listeners.
+     */
+    public dispose(): void {
+        if (this.disposed) {
+            return;
+        }
+        this.disposed = true;
+        this.interaction.dispose();
+        if (this.spinner != null) {
+            this.spinner.stop();
+            this.spinner = undefined;
+        }
+        if (this.spinnerDiv != null) {
+            this.spinnerDiv.remove();
+            this.spinnerDiv = undefined;
+        }
+        if (this.canvas.legend != null) {
+            this.canvas.legend.dispose();
+            this.canvas.legend = undefined;
+        }
+        this.canvas.background.dispose();
+        this.canvas.graph.dispose();
+        this.canvas.highlight.dispose();
+        this.canvas.interaction.dispose();
     }
 
     /**
      * Get options instance.
      */
-    public getOptions(): Options {
-        return this.options;
-    }
-
-    /**
-     * Sets all options to their default values.
-     */
-    public setDefaultOptions(): void {
-        this.options.setDefault();
+    public getOptions(): FullOptions {
+        return this.options.options;
     }
 
     /**
      * Set new options.
      */
-    public setOptions(options: OptionsInput): void {
+    public setOptions(options?: PartialOptions): void {
+        if (this.disposed) {
+            throw new Error(
+                "owp.graph ERROR: Can't set options: Graph is disposed.",
+            );
+        }
         this.options.set(options);
         this.hasCalculatedGraphSize = false;
         if (this.options.isOk()) {
-            this.axes.x.zoom(this.options.zoom.xMin, this.options.zoom.xMax);
-            this.axes.y.zoom(this.options.zoom.yMin, this.options.zoom.yMax);
+            const opts = this.options.options;
+            this.axes.x.zoom(opts.zoom.xMin, opts.zoom.xMax);
+            this.axes.y.zoom(opts.zoom.yMin, opts.zoom.yMax);
             this.axes.x.calculateBounds();
             this.axes.y.calculateBounds();
             this.interaction.updateOptions();
             this.canvas.graph.setBorder(
-                this.options.border.style,
-                this.options.border.color,
-                this.options.border.width,
+                opts.border.style,
+                opts.border.color,
+                opts.border.width,
             );
-            this._initLegend();
-            this._plot();
+            this.initLegend();
+            this.plot();
         } else {
             console.error("owp.graph ERROR: Can't plot: Invalid options.");
         }
@@ -132,10 +166,13 @@ export default class Graph {
 
     /**
      * Create legend canvas and attach to parent dom.
+     *
+     * @internal
      */
-    private _initLegend(): void {
-        const location = this.options.legend.location;
-        if (location && this.options.interaction.trackMouse) {
+    private initLegend(): void {
+        const opts = this.options.options;
+        const location = opts.legend.location;
+        if (location !== "" && opts.interaction.trackMouse) {
             // DIV id.
             if (
                 location.toLowerCase() !== "top" &&
@@ -168,10 +205,7 @@ export default class Graph {
                     this.canvas.legend.disableMouseInteraction();
                 }
                 if (location.toLowerCase() === "top") {
-                    this.canvas.legend.setSize(
-                        "100%",
-                        this.options.legend.size,
-                    );
+                    this.canvas.legend.setSize("100%", opts.legend.size);
                 } else if (location.toLowerCase() === "right") {
                     this.canvas.legend.setPosition(0, 0, true);
                     this.canvas.legend.setSize(200, "100%");
@@ -187,13 +221,17 @@ export default class Graph {
 
     /**
      * Renders the legend on the background canvas.
+     *
+     * @internal
      */
-    public _renderLegend(values?: GraphValues): void {
-        if (!this.canvas.legend || this.options.graph.dataY.length === 0) {
+    public renderLegend(values?: GraphValues): void {
+        const opts = this.options.options;
+
+        if (!this.canvas.legend || opts.graph.dataY.length === 0) {
             return;
         }
 
-        const settings = this.options.legend;
+        const settings = opts.legend;
         const canvas = this.canvas.legend;
         canvas.clear();
         canvas.set("font", this.options.getLegendFont());
@@ -208,11 +246,11 @@ export default class Graph {
             settings.location.toLowerCase() === "right";
 
         let x = alignLeft
-            ? this.options.legend.offsetX + this.options.legend.padding
-            : canvas.getWidth() - this.options.legend.offsetX;
+            ? opts.legend.offsetX + opts.legend.padding
+            : canvas.getWidth() - opts.legend.offsetX;
 
         // OffsetY is disabled for top location.
-        let y = isTop ? 0 : this.options.legend.offsetY;
+        let y = isTop ? 0 : opts.legend.offsetY;
 
         function printValue(
             color: string,
@@ -230,7 +268,7 @@ export default class Graph {
 
         const printX = (): void => {
             printValue(
-                this.options.graph.colors[0],
+                opts.graph.colors[0],
                 this.options.getName(0),
                 values ? this.axes.x.formatLegendValue(values[0]) : undefined,
             );
@@ -238,7 +276,7 @@ export default class Graph {
 
         const printY = (i: number): void => {
             printValue(
-                this.options.graph.colors[i],
+                opts.graph.colors[i],
                 this.options.getName(i),
                 values ? this.axes.y.formatLegendValue(values[i]) : undefined,
             );
@@ -246,11 +284,11 @@ export default class Graph {
 
         if (alignLeft || newLine) {
             printX();
-            for (let i = 1; i <= this.options.graph.dataY.length; ++i) {
+            for (let i = 1; i <= opts.graph.dataY.length; ++i) {
                 printY(i);
             }
         } else {
-            for (let i = this.options.graph.dataY.length; i >= 1; --i) {
+            for (let i = opts.graph.dataY.length; i >= 1; --i) {
                 printY(i);
             }
             printX();
@@ -259,15 +297,17 @@ export default class Graph {
 
     /**
      * Plots/draws the graph.
+     *
+     * @internal
      */
-    public _plot(): void {
-        if (this.options.debug) {
+    public plot(): void {
+        if (this.options.options.debug) {
             console.time("owp.graph DEBUG: Plot time");
         }
 
         // If graph size has not yet been calculated. Do it.
         if (!this.hasCalculatedGraphSize) {
-            this._calculateGraphSize();
+            this.calculateGraphSize();
         }
 
         // Clear plot.
@@ -277,73 +317,77 @@ export default class Graph {
         this.interaction.clear();
 
         // Render non data related features.
-        this._renderTitle();
-        this._renderAxesLabels();
-        this._renderSpin();
+        this.renderTitle();
+        this.renderAxesLabels();
+        this.renderSpin();
 
         // Has bounds. Render bounds related features.
         if (this.axes.x.hasBounds() && this.axes.y.hasBounds()) {
-            this._renderXAxis();
-            this._renderYAxis();
-            this._renderHighlight();
+            this.renderXAxis();
+            this.renderYAxis();
+            this.renderHighlight();
 
             // Has graph data. Render graph data.
-            if (this.options.graph.dataY.length > 0) {
-                this._renderLegend();
-                this._renderGraph();
+            if (this.options.options.graph.dataY.length > 0) {
+                this.renderLegend();
+                this.renderGraph();
                 this.interaction.render();
-            } else if (this.options.debug) {
+            } else if (this.options.options.debug) {
                 console.debug(
                     "owp.graph DEBUG: No data set available. Plotting available features.",
                 );
             }
         }
         // Has neither bounds or data.
-        else if (this.options.debug) {
+        else if (this.options.options.debug) {
             console.debug(
                 "owp.graph DEBUG: No bounds or data set available. Plotting available features.",
             );
         }
 
-        if (this.options.debug) {
+        if (this.options.options.debug) {
             console.timeEnd("owp.graph DEBUG: Plot time");
         }
     }
 
     /**
      * Render the spinner
+     *
+     * @internal
      */
-    private _renderSpin(): void {
+    private renderSpin(): void {
         // Can't update options so have to remove old spinner always.
-        if (this.spinner) {
+        if (this.spinner != null) {
             this.spinner.stop();
-            this.spinner = null;
+            this.spinner = undefined;
         }
         // Show spinner
-        if (this.options.spinner.show) {
+        if (this.options.options.spinner.show) {
             // Spinner div does not exist. Create it.
-            if (!this.spinnerDiv) {
+            if (this.spinnerDiv == null) {
                 this.spinnerDiv = document.createElement("div");
                 this.spinnerDiv.style.position = "absolute";
                 this.spinnerDiv.style.zIndex = "3";
                 this.container.append(this.spinnerDiv);
-                this._updateSpinnerSize();
+                this.updateSpinnerSize();
             }
-            this.spinner = new Spinner(this.options.spinner);
+            this.spinner = new Spinner(this.options.options.spinner);
             this.spinner.spin(this.spinnerDiv);
         }
         // Hide spinner. Remove old div.
         else if (this.spinnerDiv) {
             this.spinnerDiv.remove();
-            this.spinnerDiv = null;
+            this.spinnerDiv = undefined;
         }
     }
 
     /**
      * Updates the position and size of the spinner div based on the graph canvas.
+     *
+     * @internal
      */
-    private _updateSpinnerSize(): void {
-        if (this.spinnerDiv) {
+    private updateSpinnerSize(): void {
+        if (this.spinnerDiv != null) {
             this.spinnerDiv.style.left = `${this.canvas.graph.getContentX()}px`;
             this.spinnerDiv.style.top = `${this.canvas.graph.getContentY()}px`;
             this.spinnerDiv.style.width = `${this.canvas.graph.getContentWidth()}px`;
@@ -353,11 +397,13 @@ export default class Graph {
 
     /**
      * Calculate graph canvas position and size.
+     *
+     * @internal
      */
-    public _calculateGraphSize(): void {
+    public calculateGraphSize(): void {
         const border = this.options.getBorder();
-        const offsetTop = this._getOffset("top");
-        const offsetBottom = this._getOffset("bottom");
+        const offsetTop = this.getOffset("top");
+        const offsetBottom = this.getOffset("bottom");
         let height =
             this.canvas.background.getHeight() - offsetTop - offsetBottom;
 
@@ -366,13 +412,13 @@ export default class Graph {
             this.axes.y.calculateTicks(height - border.top - border.bottom);
         }
 
-        const offsetLeft = this._getOffset("left");
+        const offsetLeft = this.getOffset("left");
         let x = offsetLeft;
         let y = offsetTop;
         let width =
             this.canvas.background.getWidth() -
             offsetLeft -
-            this._getOffset("right");
+            this.getOffset("right");
 
         if (this.axes.x.hasBounds()) {
             this.axes.x.calculateTicks(width - border.left - border.right);
@@ -396,15 +442,20 @@ export default class Graph {
         this.canvas.interaction.setSize(width, height);
         // Set legend canvas if available.
         if (this.canvas.legend) {
-            if (this.options.legend.location.toLowerCase() === "top") {
+            if (this.options.options.legend.location.toLowerCase() === "top") {
                 this.canvas.legend.setPosition(
                     x,
                     y -
                         this.canvas.legend.getHeight() -
-                        this.options.legend.padding,
+                        this.options.options.legend.padding,
                 );
-                this.canvas.legend.setSize(width, this.options.legend.size);
-            } else if (this.options.legend.location.toLowerCase() === "right") {
+                this.canvas.legend.setSize(
+                    width,
+                    this.options.options.legend.size,
+                );
+            } else if (
+                this.options.options.legend.location.toLowerCase() === "right"
+            ) {
                 this.canvas.legend.setPosition(
                     this.options.getOffset().right,
                     y,
@@ -418,16 +469,18 @@ export default class Graph {
         this.interaction.graphChangedSize(x, y, width, height);
 
         // Updates the spinner div size.
-        this._updateSpinnerSize();
+        this.updateSpinnerSize();
 
         this.hasCalculatedGraphSize = true;
     }
 
     /**
      * Renders the x-axis(ticks markers, tick labels, grid lines) on the background canvas.
+     *
+     * @internal
      */
-    private _renderXAxis(): void {
-        if (!this.options.axes.x.show) {
+    private renderXAxis(): void {
+        if (!this.options.options.axes.x.show) {
             return;
         }
         const ticks = this.axes.x.getTicks();
@@ -506,9 +559,11 @@ export default class Graph {
 
     /**
      * Renders the y-axis(ticks markers, tick labels, grid lines) on the background canvas.
+     *
+     * @internal
      */
-    private _renderYAxis(): void {
-        if (!this.options.axes.y.show) {
+    private renderYAxis(): void {
+        if (!this.options.options.axes.y.show) {
             return;
         }
         const ticks = this.axes.y.getTicks();
@@ -570,31 +625,33 @@ export default class Graph {
 
     /**
      * Renders the axes(x and y) labels on the background canvas.
+     *
+     * @internal
      */
-    private _renderAxesLabels(): void {
+    private renderAxesLabels(): void {
+        const opts = this.options.options;
         // Draw X label.
-        if (this.options.axes.x.show && this.options.axes.x.label.length > 0) {
+        if (opts.axes.x.show && opts.axes.x.label.length > 0) {
             const x =
                 this.canvas.graph.getContentX() +
                 this.canvas.graph.getContentWidth() / 2;
             const y =
                 this.canvas.background.getHeight() -
-                this.options.axes.labels.offset -
+                opts.axes.labels.offset -
                 this.options.getOffset().bottom;
             this.canvas.background.text(
                 this.axes.x.getAxisLabel(),
                 x,
                 y,
                 this.axes.x.getAxisLabelFont(),
-                this.options.axes.labels.color,
+                opts.axes.labels.color,
                 "center",
                 "bottom",
             );
         }
         // Draw Y label.
-        if (this.options.axes.y.show && this.options.axes.y.label.length > 0) {
-            const x =
-                this.options.axes.labels.offset + this.options.getOffset().left;
+        if (opts.axes.y.show && opts.axes.y.label.length > 0) {
+            const x = opts.axes.labels.offset + this.options.getOffset().left;
             const y =
                 this.canvas.graph.getContentY() +
                 this.canvas.graph.getContentHeight() / 2;
@@ -603,7 +660,7 @@ export default class Graph {
                 x,
                 y,
                 this.axes.y.getAxisLabelFont(),
-                this.options.axes.labels.color,
+                opts.axes.labels.color,
                 "center",
                 "hanging",
                 -90,
@@ -613,50 +670,55 @@ export default class Graph {
 
     /**
      * Renders the graph title on the background canvas.
+     *
+     * @internal
      */
-    private _renderTitle(): void {
-        if (this.options.title.label.length === 0) {
+    private renderTitle(): void {
+        const opts = this.options.options;
+        if (opts.title.label.length === 0) {
             return;
         }
         let x = 0;
-        if (this.options.title.align.toLowerCase() === "left") {
+        if (opts.title.align.toLowerCase() === "left") {
             x =
                 this.canvas.graph.getContentX() +
-                this.options.title.offsetX +
+                opts.title.offsetX +
                 this.options.getOffset().left;
-        } else if (this.options.title.align.toLowerCase() === "center") {
+        } else if (opts.title.align.toLowerCase() === "center") {
             x =
                 this.canvas.graph.getContentX() +
                 this.canvas.graph.getContentWidth() / 2 +
-                this.options.title.offsetX;
-        } else if (this.options.title.align.toLowerCase() === "right") {
+                opts.title.offsetX;
+        } else if (opts.title.align.toLowerCase() === "right") {
             x =
                 this.canvas.graph.getContentX() +
                 this.canvas.graph.getContentWidth() -
-                this.options.title.offsetX -
+                opts.title.offsetX -
                 this.options.getOffset().right;
         }
-        const y = this.options.title.offsetY + this.options.getOffset().top;
+        const y = opts.title.offsetY + this.options.getOffset().top;
         const font = `${
-            (this.options.title.bold ? "bold " : "") + this.options.title.size
-        }px ${this.options.title.font}`;
+            (opts.title.bold ? "bold " : "") + opts.title.size
+        }px ${opts.title.font}`;
         this.canvas.background.text(
-            this.options.title.label,
+            opts.title.label,
             x,
             y,
             font,
-            this.options.title.color,
-            this.options.title.align,
+            opts.title.color,
+            opts.title.align,
             "top",
         );
     }
 
     /**
      * Renders the highligted area on the highligh canvas.
+     *
+     * @internal
      */
-    private _renderHighlight(): void {
+    private renderHighlight(): void {
         this.canvas.highlight.clear();
-        const h = this.options.highlight;
+        const h = this.options.options.highlight;
         if (
             h.xMin == null &&
             h.xMax == null &&
@@ -675,24 +737,27 @@ export default class Graph {
 
     /**
      * Renders the graph curve on the graph canvas.
+     *
+     * @internal
      */
-    public _renderGraph(): void {
-        if (this.options.debug && this.options.graph.smoothing > 1) {
+    public renderGraph(): void {
+        const opts = this.options.options;
+        if (opts.debug && opts.graph.smoothing > 1) {
             console.debug(
-                `owp.graph DEBUG: Smoothed rendering: ${this.options.graph.smoothing}`,
+                `owp.graph DEBUG: Smoothed rendering: ${opts.graph.smoothing}`,
             );
         }
-        if (this.options.debug && this.options.renderSimplify()) {
+        if (opts.debug && this.options.renderSimplify()) {
             console.debug(
-                `owp.graph DEBUG: Simplify rendering: ${this.options.graph.simplify} ${this.options.graph.simplifyBy}`,
+                `owp.graph DEBUG: Simplify rendering: ${opts.graph.simplify} ${opts.graph.simplifyBy}`,
             );
         }
         // Clear old data so we can draw new.
         this.canvas.graph.clear();
         // Get canvas and set properties.
         const ctx = this.canvas.graph.getContext();
-        ctx.lineWidth = this.options.graph.lineWidth;
-        ctx.globalCompositeOperation = this.options.graph.compositeOperation;
+        ctx.lineWidth = opts.graph.lineWidth;
+        ctx.globalCompositeOperation = opts.graph.compositeOperation;
         // Get render callback based on options
         const renderCallback = getRenderCallback(
             this.options,
@@ -700,90 +765,84 @@ export default class Graph {
             this.axes,
         );
         // Render each data set.
-        for (let i = 0; i < this.options.graph.dataY.length; ++i) {
+        for (let i = 0; i < opts.graph.dataY.length; ++i) {
             renderCallback(i);
         }
     }
 
     /**
      * Get offset for the given paramters.
+     *
+     * @internal
      */
-    private _getOffset(side: OffsetSide): number {
+    private getOffset(side: OffsetSide): number {
+        const opts = this.options.options;
         let offset = 0;
         switch (side) {
             case "top":
-                if (this.options.title.label.length > 0) {
-                    offset += this.options.title.size;
-                    offset += this.options.title.offsetY;
-                    offset += this.options.title.padding;
+                if (opts.title.label.length > 0) {
+                    offset += opts.title.size;
+                    offset += opts.title.offsetY;
+                    offset += opts.title.padding;
                 }
                 if (
                     this.canvas.legend &&
-                    this.options.legend.location.toLowerCase() === "top"
+                    opts.legend.location.toLowerCase() === "top"
                 ) {
                     offset += this.canvas.legend.getHeight();
-                    offset += this.options.legend.offsetY;
-                    offset += this.options.legend.padding;
-                } else if (
-                    this.options.axes.y.show &&
-                    this.options.axes.tickLabels.show
-                ) {
-                    offset += this.options.axes.tickLabels.size / 2;
+                    offset += opts.legend.offsetY;
+                    offset += opts.legend.padding;
+                } else if (opts.axes.y.show && opts.axes.tickLabels.show) {
+                    offset += opts.axes.tickLabels.size / 2;
                 }
                 offset += this.options.getOffset().top;
                 break;
             case "bottom":
-                if (this.options.axes.x.show) {
-                    if (this.options.axes.x.label.length > 0) {
-                        offset += this.options.axes.labels.size;
-                        offset += this.options.axes.labels.offset;
-                        offset += this.options.axes.labels.padding;
+                if (opts.axes.x.show) {
+                    if (opts.axes.x.label.length > 0) {
+                        offset += opts.axes.labels.size;
+                        offset += opts.axes.labels.offset;
+                        offset += opts.axes.labels.padding;
                     }
-                    if (this.options.axes.x.height) {
-                        offset += this.options.axes.x.height;
+                    if (opts.axes.x.height) {
+                        offset += opts.axes.x.height;
                     } else {
-                        if (this.options.axes.tickLabels.show) {
-                            offset += this.options.axes.tickLabels.size;
-                            offset += this.options.axes.tickLabels.offset;
-                            offset += this.options.axes.tickLabels.padding;
+                        if (opts.axes.tickLabels.show) {
+                            offset += opts.axes.tickLabels.size;
+                            offset += opts.axes.tickLabels.offset;
+                            offset += opts.axes.tickLabels.padding;
                         }
-                        if (this.options.axes.tickMarkers.show) {
-                            offset += this.options.axes.tickMarkers.length;
-                            offset += this.options.axes.tickMarkers.offset;
+                        if (opts.axes.tickMarkers.show) {
+                            offset += opts.axes.tickMarkers.length;
+                            offset += opts.axes.tickMarkers.offset;
                         }
                     }
-                } else if (
-                    this.options.axes.y.show &&
-                    this.options.axes.tickLabels.show
-                ) {
-                    offset += this.options.axes.tickLabels.size / 2;
+                } else if (opts.axes.y.show && opts.axes.tickLabels.show) {
+                    offset += opts.axes.tickLabels.size / 2;
                 }
                 offset += this.options.getOffset().bottom;
                 break;
             case "left":
-                if (this.options.axes.y.show) {
-                    if (this.options.axes.y.label.length > 0) {
-                        offset += this.options.axes.labels.size;
-                        offset += this.options.axes.labels.offset;
-                        offset += this.options.axes.labels.padding;
+                if (opts.axes.y.show) {
+                    if (opts.axes.y.label.length > 0) {
+                        offset += opts.axes.labels.size;
+                        offset += opts.axes.labels.offset;
+                        offset += opts.axes.labels.padding;
                     }
-                    if (this.options.axes.y.width) {
-                        offset += this.options.axes.y.width;
+                    if (opts.axes.y.width) {
+                        offset += opts.axes.y.width;
                     } else {
-                        if (this.options.axes.tickLabels.show) {
+                        if (opts.axes.tickLabels.show) {
                             offset += this.axes.y.getLabelWidth();
-                            offset += this.options.axes.tickLabels.offset;
-                            offset += this.options.axes.tickLabels.padding;
+                            offset += opts.axes.tickLabels.offset;
+                            offset += opts.axes.tickLabels.padding;
                         }
-                        if (this.options.axes.tickMarkers.show) {
-                            offset += this.options.axes.tickMarkers.length;
-                            offset += this.options.axes.tickMarkers.offset;
+                        if (opts.axes.tickMarkers.show) {
+                            offset += opts.axes.tickMarkers.length;
+                            offset += opts.axes.tickMarkers.offset;
                         }
                     }
-                } else if (
-                    this.options.axes.x.show &&
-                    this.options.axes.tickLabels.show
-                ) {
+                } else if (opts.axes.x.show && opts.axes.tickLabels.show) {
                     offset += this.axes.x.getBoundLabelWidth("min", true);
                 }
                 offset += this.options.getOffset().left;
@@ -791,7 +850,7 @@ export default class Graph {
             case "right":
                 if (
                     this.canvas.legend &&
-                    this.options.legend.location.toLowerCase() === "right"
+                    opts.legend.location.toLowerCase() === "right"
                 ) {
                     offset += this.canvas.legend.getWidth();
                 }

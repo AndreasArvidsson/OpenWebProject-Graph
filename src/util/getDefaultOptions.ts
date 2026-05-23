@@ -1,6 +1,6 @@
-import type { OptionsObject } from "../Options.type.js";
+import type { FullOptions } from "../Options.type.js";
 
-export function getDefaultOptions(): OptionsObject {
+export function getDefaultOptions(): FullOptions {
     return {
         debug: false,
         offset: "0 20px 0 0",

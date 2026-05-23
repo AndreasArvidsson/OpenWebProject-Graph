@@ -21,7 +21,6 @@ const disabledRules = [
     "eslint/no-plusplus",
     "eslint/no-ternary",
     "eslint/no-undefined",
-    "eslint/no-underscore-dangle",
     "eslint/no-use-before-define",
     "eslint/prefer-destructuring",
     "eslint/sort-imports",
@@ -99,6 +98,12 @@ export default defineConfig({
                         message: "Use node:assert/strict instead",
                     },
                 ],
+            },
+        ],
+        "eslint/no-underscore-dangle": [
+            "warn",
+            {
+                allow: ["_exhaustiveCheck"],
             },
         ],
         "eslint/no-unused-vars": [

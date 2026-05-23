@@ -1,6 +1,7 @@
 import { getCalculateValueCallback, getDataCallback } from "./Callbacks.js";
 import type Graph from "./index.js";
 import { createInput } from "./Input.js";
+import type { FullOptions } from "./Options.type.js";
 import { binarySearch } from "./util/binarySearch.js";
 
 interface MouseTrackingCallbacks {
@@ -24,21 +25,33 @@ interface InteractionData {
  * Interaction is a class that handles the user interaction for the Graph class.
  */
 export class Interaction {
-    private readonly _graph: Graph;
-    private _interactionData: InteractionData[] = [];
-    private _mouseTrackingCallbacks?: MouseTrackingCallbacks;
-    private _resizeCallback?: () => void;
-    private _resizing = false;
-    private _smoothingCallback?: () => void;
-    private _smoothingInput?: HTMLInputElement;
-    private _zoomCallbacks?: ZoomCallbacks;
+    private readonly graph: Graph;
+    private interactionData: InteractionData[] = [];
+    private mouseTrackingCallbacks?: MouseTrackingCallbacks;
+    private resizeCallback?: () => void;
+    private resizeTimeout?: ReturnType<typeof setTimeout>;
+    private smoothingCallback?: () => void;
+    private smoothingInput?: HTMLInputElement;
+    private zoomCallbacks?: ZoomCallbacks;
+    private resizing = false;
     private mouseDown = false;
 
     /**
      * Create a new Interaction.
      */
     public constructor(graph: Graph) {
-        this._graph = graph;
+        this.graph = graph;
+    }
+
+    /**
+     * Dispose of all interaction event listeners and elements.
+     */
+    public dispose(): void {
+        this.removeResizeEvent();
+        this.removeMouseTrackingEvents();
+        this.removeZoomEvents();
+        this.removeSmoothingEvent();
+        this.interactionData = [];
     }
 
     /**
@@ -46,108 +59,66 @@ export class Interaction {
      */
     public updateOptions(): void {
         // Resizing.
-        if (this._graph.options.interaction.resize && !this._resizeCallback) {
-            this._resizeCallback = this._addResizeEvent();
+        if (this.options().interaction.resize && this.resizeCallback == null) {
+            this.resizeCallback = this.addResizeEvent();
         } else if (
-            !this._graph.options.interaction.resize &&
-            this._resizeCallback
+            !this.options().interaction.resize &&
+            this.resizeCallback != null
         ) {
-            window.removeEventListener("resize", this._resizeCallback);
-            this._resizeCallback = undefined;
+            this.removeResizeEvent();
         }
 
         // Mouse tracking.
         if (
-            this._graph.options.interaction.trackMouse &&
-            !this._mouseTrackingCallbacks
+            this.options().interaction.trackMouse &&
+            this.mouseTrackingCallbacks == null
         ) {
-            this._mouseTrackingCallbacks = this._addMouseTrackingEvents();
+            this.mouseTrackingCallbacks = this.addMouseTrackingEvents();
         } else if (
-            !this._graph.options.interaction.trackMouse &&
-            this._mouseTrackingCallbacks
+            !this.options().interaction.trackMouse &&
+            this.mouseTrackingCallbacks != null
         ) {
-            const canvas = this._graph.canvas.interaction.getCanvas();
-            canvas.removeEventListener(
-                "mousemove",
-                this._mouseTrackingCallbacks.mousemove,
-            );
-            canvas.removeEventListener(
-                "mouseout",
-                this._mouseTrackingCallbacks.mouseout,
-            );
-            this._mouseTrackingCallbacks = undefined;
+            this.removeMouseTrackingEvents();
         }
 
         // Zooming.
-        if (this._graph.options.interaction.zoom && !this._zoomCallbacks) {
-            this._zoomCallbacks = this._addZoomEvents();
+        if (this.options().interaction.zoom && this.zoomCallbacks == null) {
+            this.zoomCallbacks = this.addZoomEvents();
         } else if (
-            !this._graph.options.interaction.zoom &&
-            this._zoomCallbacks
+            !this.options().interaction.zoom &&
+            this.zoomCallbacks != null
         ) {
-            let canvas = this._graph.canvas.interaction.getCanvas();
-            canvas.removeEventListener(
-                "mousedown",
-                this._zoomCallbacks.mousedown,
-            );
-            canvas.removeEventListener(
-                "mousemove",
-                this._zoomCallbacks.mousemove,
-            );
-            canvas.removeEventListener("mouseup", this._zoomCallbacks.mouseup);
-            canvas.removeEventListener(
-                "dblclick",
-                this._zoomCallbacks.dblclick,
-            );
-            canvas = this._graph.canvas.background.getCanvas();
-            canvas.removeEventListener("mouseup", this._zoomCallbacks.mouseup);
-            canvas.removeEventListener(
-                "mouseout",
-                this._zoomCallbacks.mouseout,
-            );
-            this._zoomCallbacks = undefined;
+            this.removeZoomEvents();
         }
 
         // Smooth option.
         if (
-            this._graph.options.interaction.smoothing &&
-            this._smoothingCallback == null
+            this.options().interaction.smoothing &&
+            this.smoothingCallback == null
         ) {
-            this._smoothingCallback = this._addSmoothingEvent();
+            this.smoothingCallback = this.addSmoothingEvent();
         } else if (
-            !this._graph.options.interaction.smoothing &&
-            this._smoothingCallback != null
+            !this.options().interaction.smoothing &&
+            this.smoothingCallback != null
         ) {
-            const smoothingInput = this._smoothingInput;
-            if (smoothingInput == null) {
-                return;
-            }
-            smoothingInput.removeEventListener(
-                "change",
-                this._smoothingCallback,
-            );
-            this._smoothingCallback = undefined;
-            smoothingInput.remove();
-            this._smoothingInput = undefined;
+            this.removeSmoothingEvent();
         }
 
         // Every time options are updated. Update smoothing value if available.
-        if (this._smoothingInput != null) {
-            this._smoothingInput.value = String(
-                this._graph.options.graph.smoothing,
-            );
+        if (this.smoothingInput != null) {
+            this.smoothingInput.value = String(this.options().graph.smoothing);
         }
 
-        this._createInteractionData();
+        this.createInteractionData();
     }
 
     /**
      * Clear interaction data.
      */
     public clear(): void {
-        this._graph.canvas.interaction.clear();
-        if (this._smoothingInput != null) {
-            this._smoothingInput.style.display = "none";
+        this.graph.canvas.interaction.clear();
+        if (this.smoothingInput != null) {
+            this.smoothingInput.style.display = "none";
         }
     }
 
@@ -155,8 +126,8 @@ export class Interaction {
      * Render interaction data.
      */
     public render(): void {
-        if (this._smoothingInput != null) {
-            this._smoothingInput.style.display = "block";
+        if (this.smoothingInput != null) {
+            this.smoothingInput.style.display = "block";
         }
     }
 
@@ -169,40 +140,43 @@ export class Interaction {
         width: number,
         height: number,
     ): void {
-        if (this._smoothingInput != null) {
-            this._smoothingInput.style.top = `${y + height - 21}px`;
-            this._smoothingInput.style.left = `${x}px`;
-            this._smoothingInput.style.display = "block";
+        if (this.smoothingInput != null) {
+            this.smoothingInput.style.top = `${y + height - 21}px`;
+            this.smoothingInput.style.left = `${x}px`;
+            this.smoothingInput.style.display = "block";
         }
+    }
+
+    private options(): FullOptions {
+        return this.graph.options.options;
     }
 
     /**
      * Add a resize event.
      */
-    private _addResizeEvent(): () => void {
-        const graph = this._graph;
-        let timeOutResize: ReturnType<typeof setTimeout> | undefined;
+    private addResizeEvent(): () => void {
+        const graph = this.graph;
 
         // Re-plots the graph on resize end.
         const resizeEnd = (): void => {
             graph.canvas.background.resize();
-            graph._calculateGraphSize();
-            graph._plot();
-            timeOutResize = undefined;
-            this._resizing = false;
+            graph.calculateGraphSize();
+            graph.plot();
+            this.resizeTimeout = undefined;
+            this.resizing = false;
         };
 
         // Clear graph, hightlight and spinner features on resize start.
         const resizeStart = (): void => {
-            this._resizing = true;
+            this.resizing = true;
             graph.canvas.graph.clear();
             graph.canvas.highlight.clear();
             graph.canvas.interaction.clear();
-            graph._renderLegend();
+            graph.renderLegend();
         };
 
-        let lastWidth = this._graph.canvas.background.getWidth();
-        let lastHeight = this._graph.canvas.background.getHeight();
+        let lastWidth = this.graph.canvas.background.getWidth();
+        let lastHeight = this.graph.canvas.background.getHeight();
         let lastPixelRatio = window.devicePixelRatio;
 
         const callback = (): void => {
@@ -216,12 +190,14 @@ export class Interaction {
                 lastHeight = graph.canvas.background.getHeight();
                 lastPixelRatio = window.devicePixelRatio;
                 // First time the function is called for this resize event.
-                if (timeOutResize == null) {
+                if (this.resizeTimeout == null) {
                     resizeStart();
                 }
                 // Reset timer each time so that the resizeEnd function doesnt run until the user has stopped resizing.
-                clearTimeout(timeOutResize);
-                timeOutResize = setTimeout(resizeEnd, 500);
+                if (this.resizeTimeout != null) {
+                    clearTimeout(this.resizeTimeout);
+                }
+                this.resizeTimeout = setTimeout(resizeEnd, 500);
             }
         };
 
@@ -229,12 +205,66 @@ export class Interaction {
         return callback;
     }
 
-    private _addMouseTrackingEvents(): MouseTrackingCallbacks {
-        const graph = this._graph;
+    private removeResizeEvent(): void {
+        if (this.resizeCallback != null) {
+            window.removeEventListener("resize", this.resizeCallback);
+            this.resizeCallback = undefined;
+        }
+        if (this.resizeTimeout != null) {
+            clearTimeout(this.resizeTimeout);
+            this.resizeTimeout = undefined;
+        }
+        this.resizing = false;
+    }
+
+    private removeMouseTrackingEvents(): void {
+        if (this.mouseTrackingCallbacks == null) {
+            return;
+        }
+        const canvas = this.graph.canvas.interaction.getCanvas();
+        canvas.removeEventListener(
+            "mousemove",
+            this.mouseTrackingCallbacks.mousemove,
+        );
+        canvas.removeEventListener(
+            "mouseout",
+            this.mouseTrackingCallbacks.mouseout,
+        );
+        this.mouseTrackingCallbacks = undefined;
+    }
+
+    private removeZoomEvents(): void {
+        if (this.zoomCallbacks == null) {
+            return;
+        }
+        let canvas = this.graph.canvas.interaction.getCanvas();
+        canvas.removeEventListener("mousedown", this.zoomCallbacks.mousedown);
+        canvas.removeEventListener("mousemove", this.zoomCallbacks.mousemove);
+        canvas.removeEventListener("mouseup", this.zoomCallbacks.mouseup);
+        canvas.removeEventListener("dblclick", this.zoomCallbacks.dblclick);
+        canvas = this.graph.canvas.background.getCanvas();
+        canvas.removeEventListener("mouseup", this.zoomCallbacks.mouseup);
+        canvas.removeEventListener("mouseleave", this.zoomCallbacks.mouseout);
+        this.zoomCallbacks = undefined;
+        this.mouseDown = false;
+    }
+
+    private removeSmoothingEvent(): void {
+        const smoothingInput = this.smoothingInput;
+        if (smoothingInput != null && this.smoothingCallback != null) {
+            smoothingInput.removeEventListener("done", this.smoothingCallback);
+        }
+        this.smoothingCallback = undefined;
+        smoothingInput?.remove();
+        this.smoothingInput = undefined;
+    }
+
+    private addMouseTrackingEvents(): MouseTrackingCallbacks {
+        const graph = this.graph;
         const mousemove = (e: MouseEvent): void => {
             if (
                 this.mouseDown ||
-                this._resizing ||
+                this.resizing ||
                 !graph.axes.x.hasBounds() ||
                 e.offsetX < 0
             ) {
@@ -243,13 +273,13 @@ export class Interaction {
             const valueX = graph.axes.x.pixelToValue(e.offsetX);
             const values = [valueX];
             graph.canvas.interaction.clear();
-            for (let i = 0; i < graph.options.graph.dataY.length; ++i) {
-                const dataY = graph.options.graph.dataY[i];
+            for (let i = 0; i < this.options().graph.dataY.length; ++i) {
+                const dataY = this.options().graph.dataY[i];
                 // Cant track unexisting values.
                 if (dataY.length === 0) {
                     continue;
                 }
-                const getDataX = getDataCallback(graph.options, "x", i);
+                const getDataX = getDataCallback(graph.options.options, "x", i);
                 const res = binarySearch(getDataX, dataY.length, valueX);
                 const calculateValueCallback = getCalculateValueCallback(
                     graph.options,
@@ -261,7 +291,7 @@ export class Interaction {
                 );
                 let valueY, pixelY;
                 // Found exaxt X-value.
-                if (res.found !== undefined) {
+                if (res.found != null) {
                     valueY = calculateValueCallback(res.found);
                     pixelY = graph.axes.y.valueToPixel(valueY);
                 }
@@ -290,15 +320,15 @@ export class Interaction {
                 values[i + 1] = valueY;
                 // If value is missing don't plot it.
                 if (Number.isFinite(pixelY)) {
-                    this._interactionData[i].moveTo(e.offsetX, pixelY);
+                    this.interactionData[i].moveTo(e.offsetX, pixelY);
                 }
             }
-            graph._renderLegend(values);
+            graph.renderLegend(values);
         };
         const mouseout = (): void => {
             if (!this.mouseDown) {
                 graph.canvas.interaction.clear();
-                graph._renderLegend();
+                graph.renderLegend();
             }
         };
         const canvas = graph.canvas.interaction.getCanvas();
@@ -310,8 +340,8 @@ export class Interaction {
     /**
      * Add zoom events.
      */
-    private _addZoomEvents(): ZoomCallbacks {
-        const graph = this._graph;
+    private addZoomEvents(): ZoomCallbacks {
+        const graph = this.graph;
         this.mouseDown = false;
         const threshold =
             0.1 *
@@ -339,7 +369,7 @@ export class Interaction {
                 lastY = e.offsetY;
                 this.mouseDown = true;
                 lastHorizontal = undefined;
-                graph._renderLegend();
+                graph.renderLegend();
             }
         };
         const mousemove = (e: MouseEvent): void => {
@@ -422,7 +452,7 @@ export class Interaction {
                         );
                         graph.axes.y.zoom(min, max);
                     }
-                    graph._plot();
+                    graph.plot();
                 }
             }
         };
@@ -432,7 +462,7 @@ export class Interaction {
             if (graph.axes.x.hasZoom() || graph.axes.y.hasZoom()) {
                 graph.axes.x.clearZoom();
                 graph.axes.y.clearZoom();
-                graph._plot();
+                graph.plot();
             }
         };
         const mouseout = (
@@ -456,7 +486,7 @@ export class Interaction {
         canvas.addEventListener("mouseup", mouseup);
         canvas.addEventListener("dblclick", dblclick);
 
-        canvas = this._graph.canvas.background.getCanvas();
+        canvas = this.graph.canvas.background.getCanvas();
         canvas.addEventListener("mouseup", mouseup);
         canvas.addEventListener("mouseleave", mouseout);
 
@@ -466,71 +496,71 @@ export class Interaction {
     /**
      * Add smoothing input event.
      */
-    private _addSmoothingEvent(): () => void {
-        this._smoothingInput = createInput({
+    private addSmoothingEvent(): () => void {
+        this.smoothingInput = createInput({
             type: "number",
             tabIndex: -1,
             maxLength: 6,
             value: 0,
             min: 0,
         });
-        this._smoothingInput.style.zIndex = "5";
-        this._smoothingInput.style.position = "absolute";
-        this._smoothingInput.style.width = "50px";
-        this._smoothingInput.style.height = "21px";
-        this._smoothingInput.style.backgroundColor = "white";
-        this._smoothingInput.style.borderRadius = "0";
-        this._smoothingInput.style.border = "1px solid #ccc";
-        this._smoothingInput.style.color = "#555";
-        this._smoothingInput.style.padding = "0 0 0 5px";
-        this._smoothingInput.style.display = "none";
-        this._smoothingInput.className =
-            `${this._smoothingInput.className || ""} a-graph-smoothing-input`.trim();
-        this._graph.container.append(this._smoothingInput);
+        this.smoothingInput.style.zIndex = "5";
+        this.smoothingInput.style.position = "absolute";
+        this.smoothingInput.style.width = "50px";
+        this.smoothingInput.style.height = "21px";
+        this.smoothingInput.style.backgroundColor = "white";
+        this.smoothingInput.style.borderRadius = "0";
+        this.smoothingInput.style.border = "1px solid #ccc";
+        this.smoothingInput.style.color = "#555";
+        this.smoothingInput.style.padding = "0 0 0 5px";
+        this.smoothingInput.style.display = "none";
+        this.smoothingInput.className =
+            `${this.smoothingInput.className || ""} a-graph-smoothing-input`.trim();
+        this.graph.container.append(this.smoothingInput);
         const callbackDone = (): void => {
-            const smoothingInput = this._smoothingInput;
+            const smoothingInput = this.smoothingInput;
             if (!smoothingInput) {
                 return;
             }
             let value = Number.parseInt(smoothingInput.value, 10);
             // Calculate min length for all data sets. Smoothing can't be greater than availalbe data points.
             let length = Number.MAX_SAFE_INTEGER;
-            for (const data of this._graph.options.graph.dataY) {
+            for (const data of this.options().graph.dataY) {
                 length = Math.min(length, data.length);
             }
             if (2 * value + 1 > length) {
                 value = Math.floor((length - 1) / 2);
             }
             smoothingInput.value = value.toString();
-            this._graph.options.graph.smoothing = value;
-            this._graph._renderGraph();
+            this.options().graph.smoothing = value;
+            this.graph.renderGraph();
         };
-        this._smoothingInput.addEventListener("done", callbackDone);
+        this.smoothingInput.addEventListener("done", callbackDone);
         return callbackDone;
     }
 
     /**
      * Create interaction data.
      */
-    private _createInteractionData(): void {
+    private createInteractionData(): void {
         const radius = 3;
         const ctx = document.createElement("canvas").getContext("2d");
         if (ctx == null) {
             throw new Error("Could not create 2D context");
         }
-        this._interactionData = [];
-        for (let i = 0; i < this._graph.options.graph.dataY.length; ++i) {
+        this.interactionData = [];
+        for (let i = 0; i < this.options().graph.dataY.length; ++i) {
             // Clear area
             ctx.clearRect(0, 0, 2 * radius, 2 * radius);
 
             // Draw solid circle
             ctx.beginPath();
             ctx.arc(radius, radius, radius, 0, 2 * Math.PI);
-            ctx.fillStyle = this._graph.options.graph.colors[i + 1];
+            ctx.fillStyle = this.options().graph.colors[i + 1];
             ctx.fill();
 
             // If fill; draw black border to increase visibility.
-            if (this._graph.options.graph.fill) {
+            if (this.options().graph.fill) {
                 ctx.beginPath();
                 ctx.arc(radius, radius, radius, 0, 2 * Math.PI);
                 ctx.strokeStyle = "#000000";
@@ -540,8 +570,8 @@ export class Interaction {
             // Get image data from tmp context.
             const imageData = ctx.getImageData(0, 0, 2 * radius, 2 * radius);
             // Add member data.
-            const canvas = this._graph.canvas.interaction;
-            this._interactionData[i] = {
+            const canvas = this.graph.canvas.interaction;
+            this.interactionData[i] = {
                 moveTo(x: number, y: number): void {
                     canvas.putImageData(imageData, x, y, -radius, -radius);
                 },

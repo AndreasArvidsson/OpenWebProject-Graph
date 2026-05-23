@@ -1,18 +1,15 @@
 import Graph from "../src/index.js";
-import type {
-    GraphDataArray,
-    OptionsInput,
-    SimplifyMode,
-} from "../src/Options.type.js";
+import type { PartialOptions } from "../src/index.js";
+import type { GraphDataArray, SimplifyMode } from "../src/Options.type.js";
 import { createDummyData } from "./createDummyData.js";
 
-type DemoOptions = OptionsInput & {
-    title: NonNullable<OptionsInput["title"]> & { label: string };
-    axes: NonNullable<OptionsInput["axes"]> & {
-        x: NonNullable<NonNullable<OptionsInput["axes"]>["x"]>;
-        y: NonNullable<NonNullable<OptionsInput["axes"]>["y"]>;
+type DemoOptions = PartialOptions & {
+    title: NonNullable<PartialOptions["title"]> & { label: string };
+    axes: NonNullable<PartialOptions["axes"]> & {
+        x: NonNullable<NonNullable<PartialOptions["axes"]>["x"]>;
+        y: NonNullable<NonNullable<PartialOptions["axes"]>["y"]>;
     };
-    graph: NonNullable<OptionsInput["graph"]> & {
+    graph: NonNullable<PartialOptions["graph"]> & {
         names: string[];
         dataX?: GraphDataArray[];
         dataY?: GraphDataArray[];
@@ -181,7 +178,7 @@ function getOptions(title: string): DemoOptions {
 }
 
 function addGraph(
-    options: OptionsInput,
+    options: PartialOptions,
     keepData?: boolean,
     legendId?: string,
 ): Graph {

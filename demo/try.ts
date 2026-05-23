@@ -1,5 +1,5 @@
 import Graph from "../src/index.js";
-import type { OptionsInput } from "../src/Options.type.js";
+import type { PartialOptions } from "../src/index.js";
 import { createDummyData } from "./createDummyData.js";
 
 const root = document.getElementById("root");
@@ -51,7 +51,7 @@ export function initTry(): void {
 
     const updateGraph = (): void => {
         // oxlint-disable-next-line prefer-const
-        let newOptions: OptionsInput = {};
+        let newOptions: PartialOptions = {};
         // oxlint-disable-next-line no-eval
         eval(`newOptions = ${code.value}`);
         if (newOptions.graph?.dataY == null) {

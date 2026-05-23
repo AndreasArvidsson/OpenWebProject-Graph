@@ -40,9 +40,13 @@ export class Canvas {
 
     public setParent(container?: HTMLElement): void {
         this.canvas.remove();
-        if (container) {
+        if (container != null) {
             container.append(this.canvas);
         }
+    }
+
+    public dispose(): void {
+        this.canvas.remove();
     }
 
     public putImageData(
@@ -165,7 +169,7 @@ export class Canvas {
         this.canvas.style.borderStyle = style;
         this.canvas.style.borderColor = color;
         this.canvas.style.borderWidth = width;
-        this._calculateContentPosition();
+        this.calculateContentPosition();
     }
 
     public get<K extends keyof CanvasRenderingContext2D>(
@@ -204,15 +208,15 @@ export class Canvas {
             this.canvas.style.top = `${y}px`;
             this.canvas.style.bottom = "";
         }
-        this._calculateContentPosition();
+        this.calculateContentPosition();
     }
 
     public setSize(width?: number | string, height?: number | string): void {
-        if (width !== undefined) {
+        if (width != null) {
             this.canvas.style.width =
                 typeof width === "number" ? `${width}px` : width;
         }
-        if (height !== undefined) {
+        if (height != null) {
             this.canvas.style.height =
                 typeof height === "number" ? `${height}px` : height;
         }
@@ -394,7 +398,7 @@ export class Canvas {
         this.canvas.style.pointerEvents = "none";
     }
 
-    private _calculateContentPosition(): void {
+    private calculateContentPosition(): void {
         const compStyle = getComputedStyle(this.canvas);
         const borderLeft = Number.parseFloat(
             /\d+/u.exec(compStyle.getPropertyValue("border-left-width"))?.[0] ??

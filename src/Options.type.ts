@@ -179,7 +179,7 @@ export interface SpinnerOptions extends Required<SpinJSSpinnerOptions> {
     show: boolean;
 }
 
-export interface OptionsObject {
+export interface FullOptions {
     debug: boolean;
     offset: number | string;
     interaction: InteractionOptions;
@@ -193,7 +193,7 @@ export interface OptionsObject {
     spinner: SpinnerOptions;
 }
 
-export type OptionsInput = DeepPartial<OptionsObject>;
+export type PartialOptions = DeepPartial<FullOptions>;
 
 type DeepPartial<T> = T extends (...args: unknown[]) => unknown
     ? T

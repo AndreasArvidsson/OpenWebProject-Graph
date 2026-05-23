@@ -37,7 +37,6 @@ interface AxisTickList extends Array<Tick> {
  * The Axis class is a single axis to the Graph class.
  */
 export class Axis {
-    private readonly axis: AxisXOptions | AxisYOptions;
     private readonly getRatio: () => number;
     private readonly getSize: () => number;
     private readonly isX: boolean;
@@ -49,17 +48,18 @@ export class Axis {
     private ticks?: AxisTickList;
 
     public constructor(options: Options, graphCanvas: Canvas, isX: boolean) {
-        if (isX) {
-            this.isX = true;
-            this.axis = options.axes.x;
-            this.getSize = graphCanvas.getContentWidth.bind(graphCanvas);
-        } else {
-            this.isX = false;
-            this.axis = options.axes.y;
-            this.getSize = graphCanvas.getContentHeight.bind(graphCanvas);
-        }
         this.options = options;
+        this.isX = isX;
+        this.getSize = isX
+            ? graphCanvas.getContentWidth.bind(graphCanvas)
+            : graphCanvas.getContentHeight.bind(graphCanvas);
         this.getRatio = graphCanvas.getRatio.bind(graphCanvas);
+    }
+
+    private get axis(): AxisXOptions | AxisYOptions {
+        return this.isX
+            ? this.options.options.axes.x
+            : this.options.options.axes.y;
     }
 
     /**
@@ -122,8 +122,8 @@ export class Axis {
      * Get the font(family and size) for the tick labels.
      */
     public getTickLabelsFont(): string {
-        return `${this.options.axes.tickLabels.size}px ${
-            this.options.axes.tickLabels.font
+        return `${this.options.options.axes.tickLabels.size}px ${
+            this.options.options.axes.tickLabels.font
         }`;
     }
 
@@ -131,8 +131,8 @@ export class Axis {
      * Get the font(family and size) for the axes labels.
      */
     public getAxisLabelFont(): string {
-        return `${this.options.axes.labels.size}px ${
-            this.options.axes.labels.font
+        return `${this.options.options.axes.labels.size}px ${
+            this.options.options.axes.labels.font
         }`;
     }
 
@@ -207,8 +207,8 @@ export class Axis {
         // Both bounds are not set by the user. Calculate missing.
         if (newMin == null || newMax == null) {
             const calcBounds = this.isX
-                ? this._calculateXBounds()
-                : this._calculateYBounds();
+                ? this.calculateXBounds()
+                : this.calculateYBounds();
 
             if (calcBounds) {
                 // Use both calculated bounds.
@@ -264,11 +264,12 @@ export class Axis {
      * Calculate graph axes ticks.
      */
     public calculateTicks(size?: number): void {
+        const opts = this.options.options;
         size ??= this.getSize();
 
         const labelSize = this.isX
-            ? this.options.axes.tickLabels.width
-            : this.options.axes.tickLabels.size;
+            ? opts.axes.tickLabels.width
+            : opts.axes.tickLabels.size;
         // Create ticks with user given options ticker.
         const ticks = (
             this.axis.ticker != null
@@ -279,7 +280,7 @@ export class Axis {
                       size,
                       labelSize,
                   )
-                : this._getDefaultTicks(
+                : this.getDefaultTicks(
                       this.axis.log,
                       this.getMin(),
                       this.getMax(),
@@ -301,21 +302,21 @@ export class Axis {
             tick.coordinate = this.valueToPixel(tick.value, size);
         }
         // Show tick markers.
-        if (this.options.axes.tickMarkers.show) {
+        if (opts.axes.tickMarkers.show) {
             ticks.markers = {
-                offset: this.options.axes.tickMarkers.offset,
-                length: this.options.axes.tickMarkers.length,
-                width: this.options.axes.tickMarkers.width,
-                color: this.options.axes.tickMarkers.color,
+                offset: opts.axes.tickMarkers.offset,
+                length: opts.axes.tickMarkers.length,
+                width: opts.axes.tickMarkers.width,
+                color: opts.axes.tickMarkers.color,
             };
         }
         // Show tick labels.
-        if (this.options.axes.tickLabels.show) {
+        if (opts.axes.tickLabels.show) {
             ticks.labels = {
-                offset: this.options.axes.tickLabels.offset,
-                padding: this.options.axes.tickLabels.padding,
-                size: this.options.axes.tickLabels.size,
-                color: this.options.axes.tickLabels.color,
+                offset: opts.axes.tickLabels.offset,
+                padding: opts.axes.tickLabels.padding,
+                size: opts.axes.tickLabels.size,
+                color: opts.axes.tickLabels.color,
                 font: this.getTickLabelsFont(),
                 width: [],
                 maxWidth: 0,
@@ -489,36 +490,37 @@ export class Axis {
     /**
      * Calculate X-axis bounds.
      */
-    private _calculateXBounds(): Bounds | null {
+    private calculateXBounds(): Bounds | null {
+        const opts = this.options.options;
         // Calculate missing X-axis bounds from dataX values.
-        if (this.options.graph.dataX.length > 0) {
-            if (this.options.debug) {
+        if (opts.graph.dataX.length > 0) {
+            if (opts.debug) {
                 console.debug(
                     "owp.graph DEBUG: X-bounds not set, but X-data is. Calculate X-bounds from X-data values.",
                 );
             }
             let min = Number.MAX_SAFE_INTEGER;
             let max = Number.MIN_SAFE_INTEGER;
-            for (const data of this.options.graph.dataX) {
+            for (const data of opts.graph.dataX) {
                 min = Math.min(min, data[0], data[data.length - 1]);
                 max = Math.max(max, data[0], data[data.length - 1]);
             }
             return { min, max };
         }
         // Calculate X-axis bounds from dataY length.
-        if (this.options.graph.dataY.length > 0) {
-            if (this.options.debug) {
+        if (opts.graph.dataY.length > 0) {
+            if (opts.debug) {
                 console.debug(
                     "owp.graph DEBUG: X-bounds and X-data not set, but Y-data is. Calculate X-bounds from Y-data length.",
                 );
             }
             let max = 0;
-            for (const data of this.options.graph.dataY) {
+            for (const data of opts.graph.dataY) {
                 max = Math.max(max, data.length);
             }
             return { min: 1, max };
         }
-        if (this.options.debug) {
+        if (opts.debug) {
             console.debug(
                 "owp.graph DEBUG: X-bounds, X-data and Y-data not set. Can't calculate X-bounds.",
             );
@@ -529,17 +531,18 @@ export class Axis {
     /**
      * Calculate Y-axis bounds.
      */
-    private _calculateYBounds(): Bounds | null {
+    private calculateYBounds(): Bounds | null {
+        const opts = this.options.options;
         // Calculate Y-axis bounds from dataY values.
-        if (this.options.graph.dataY.length > 0) {
-            if (this.options.debug) {
+        if (opts.graph.dataY.length > 0) {
+            if (opts.debug) {
                 console.debug(
                     "owp.graph DEBUG: Y-bounds not set, but Y-data is. Calculate Y-bounds from Y-data values.",
                 );
             }
             let min: number | null = null;
             let max: number | null = null;
-            for (const data of this.options.graph.dataY) {
+            for (const data of opts.graph.dataY) {
                 if (data.length === 0) {
                     continue;
                 }
@@ -554,7 +557,7 @@ export class Axis {
             }
             return min != null && max != null ? { min, max } : null;
         }
-        if (this.options.debug) {
+        if (opts.debug) {
             console.debug(
                 "owp.graph DEBUG: Y-bounds and Y-data not set. Can't calculate Y-bounds.",
             );
@@ -565,7 +568,7 @@ export class Axis {
     /**
      * Default get ticks funciton. Used when no ticker is set in options.
      */
-    private _getDefaultTicks(
+    private getDefaultTicks(
         isLog: boolean,
         minValue: number,
         maxValue: number,

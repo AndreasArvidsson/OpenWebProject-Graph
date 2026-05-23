@@ -1,6 +1,10 @@
 import type { Canvas } from "./Canvas.js";
 import type { Options } from "./Options.js";
-import type { GraphDataArray, SimplifyMode } from "./Options.type.js";
+import type {
+    GraphDataArray,
+    FullOptions,
+    SimplifyMode,
+} from "./Options.type.js";
 import { binarySearch } from "./util/binarySearch.js";
 
 type ValueCallback = (index: number) => number;
@@ -45,15 +49,20 @@ export function getRenderCallback(
     const strokeCallback = getStrokeCallback(options, canvas);
     return (channelIndex: number) => {
         // Aquire callback for getting X-axis data values.
-        const getDataX = getDataCallback(options, "x", channelIndex);
+        const getDataX = getDataCallback(options.options, "x", channelIndex);
         // Find start and end indicies.
-        const length = options.graph.dataY[channelIndex].length;
+        const length = options.options.graph.dataY[channelIndex].length;
         const bsMin = binarySearch(getDataX, length, min);
         const bsMax = binarySearch(getDataX, length, max);
         const start = bsMin.found ?? bsMin.min;
         const end = bsMax.found ?? bsMax.max;
         // Aquire callback for getting Y-axis data values.
-        const getDataY = getDataCallback(options, "y", channelIndex, start);
+        const getDataY = getDataCallback(
+            options.options,
+            "y",
+            channelIndex,
+            start,
+        );
         // Start path.
         ctx.beginPath();
         // Render points/lines.
@@ -81,22 +90,30 @@ export function getCalculateValueCallback(
 ): ValueCallback {
     const useSimplify =
         options.renderSimplify() &&
-        (options.graph.simplify > 0.1 || options.graph.simplifyBy !== "minMax");
+        (options.options.graph.simplify > 0.1 ||
+            options.options.graph.simplifyBy !== "minMax");
     if (useSimplify) {
         const valueToPixelX = axes.x.getValueToPixelCallback();
-        const getDataY = getDataCallback(options, "y", channelIndex, start);
-        return getCalculateSimplifyCallback(options.graph.simplifyBy).bind(
+        const getDataY = getDataCallback(
+            options.options,
+            "y",
+            channelIndex,
+            start,
+        );
+        return getCalculateSimplifyCallback(
+            options.options.graph.simplifyBy,
+        ).bind(
             null,
             dataY.length,
             getDataX,
             getDataY,
             valueToPixelX,
-            options.graph.simplify,
+            options.options.graph.simplify,
         );
-    } else if (options.graph.smoothing) {
+    } else if (options.options.graph.smoothing) {
         return calculateSmothingValue.bind(
             null,
-            options.graph.smoothing,
+            options.options.graph.smoothing,
             dataY,
         );
     }
@@ -107,8 +124,8 @@ export function getCalculateValueCallback(
 
 function getRenderFunction(options: Options): RenderFunction {
     if (options.renderSimplify()) {
-        const simplify = options.graph.simplify;
-        switch (options.graph.simplifyBy) {
+        const simplify = options.options.graph.simplify;
+        switch (options.options.graph.simplifyBy) {
             case "avg":
                 return renderAvg.bind(null, simplify);
             case "min":
@@ -122,9 +139,9 @@ function getRenderFunction(options: Options): RenderFunction {
     }
     return renderFull.bind(
         null,
-        Boolean(options.graph.lineWidth),
+        Boolean(options.options.graph.lineWidth),
         options.renderMarkers(),
-        options.graph.markerRadius,
+        options.options.graph.markerRadius,
     );
 }
 
@@ -313,7 +330,7 @@ function getStrokeCallback(
     canvas: Canvas,
 ): (ctx: CanvasRenderingContext2D, channelIndex: number) => void {
     // Fill graph
-    if (options.graph.fill) {
+    if (options.options.graph.fill) {
         return renderFill.bind(null, options, canvas);
     }
     // Stroke line.
@@ -327,8 +344,8 @@ function renderFill(
     channelIndex: number,
 ): void {
     // Render line
-    if (options.graph.lineWidth) {
-        if (options.axes.x.inverted) {
+    if (options.options.graph.lineWidth) {
+        if (options.options.axes.x.inverted) {
             ctx.lineTo(0, canvas.getContentHeight());
             ctx.lineTo(canvas.getContentWidth(), canvas.getContentHeight());
         } else {
@@ -351,8 +368,8 @@ function renderStroke(
 ): void {
     // Set dashed options
     // oxlint-disable-next-line typescript/strict-boolean-expressions
-    if (options.graph.dashed[channelIndex]) {
-        let pattern = options.graph.dashed[channelIndex];
+    if (options.options.graph.dashed[channelIndex]) {
+        let pattern = options.options.graph.dashed[channelIndex];
         if (pattern === true) {
             pattern = [5, 8];
         }
@@ -540,7 +557,7 @@ function calculateSmothingValue(
 /* *************** GET DATA CALLBACK *************** */
 
 export function getDataCallback(
-    options: Options,
+    options: FullOptions,
     axis: string,
     dataIndex: number,
     start = 0,
@@ -576,7 +593,7 @@ export function getDataCallback(
 }
 
 function getDataCallbackSmoothing(
-    options: Options,
+    options: FullOptions,
     start: number,
     data: GraphDataArray,
 ): ValueCallback {
