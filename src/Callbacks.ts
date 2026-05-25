@@ -155,7 +155,6 @@ function renderAvg(
     start: number,
     end: number,
 ): void {
-    const abs = Math.abs;
     let oldX = valueToPixelX(getDataX(start));
     let sum = getDataY(start);
     let count = 1;
@@ -163,7 +162,7 @@ function renderAvg(
     ++start;
     for (; start <= end; ++start) {
         const newX = valueToPixelX(getDataX(start));
-        if (abs(newX - oldX) < simplify) {
+        if (Math.abs(newX - oldX) < simplify) {
             sum += getDataY(start);
             ++count;
         } else {
@@ -187,16 +186,14 @@ function renderMin(
     start: number,
     end: number,
 ): void {
-    const abs = Math.abs;
-    const min = Math.min;
     let oldX = valueToPixelX(getDataX(start));
     let minVal = getDataY(start);
     // We have already counted first value;
     ++start;
     for (; start <= end; ++start) {
         const newX = valueToPixelX(getDataX(start));
-        if (abs(newX - oldX) < simplify) {
-            minVal = min(minVal, getDataY(start));
+        if (Math.abs(newX - oldX) < simplify) {
+            minVal = Math.min(minVal, getDataY(start));
         } else {
             ctx.lineTo(oldX, valueToPixelY(minVal));
             oldX = newX;
@@ -217,16 +214,14 @@ function renderMax(
     start: number,
     end: number,
 ): void {
-    const abs = Math.abs;
-    const max = Math.max;
     let oldX = valueToPixelX(getDataX(start));
     let maxVal = getDataY(start);
     // We have already counted first value;
     ++start;
     for (; start <= end; ++start) {
         const newX = valueToPixelX(getDataX(start));
-        if (abs(newX - oldX) < simplify) {
-            maxVal = max(maxVal, getDataY(start));
+        if (Math.abs(newX - oldX) < simplify) {
+            maxVal = Math.max(maxVal, getDataY(start));
         } else {
             ctx.lineTo(oldX, valueToPixelY(maxVal));
             oldX = newX;
@@ -247,9 +242,6 @@ function renderMinMax(
     start: number,
     end: number,
 ): void {
-    const abs = Math.abs;
-    const min = Math.min;
-    const max = Math.max;
     let oldX = valueToPixelX(getDataX(start));
     let minVal = getDataY(start);
     let maxVal = minVal;
@@ -257,10 +249,10 @@ function renderMinMax(
     ++start;
     for (; start <= end; ++start) {
         const newX = valueToPixelX(getDataX(start));
-        if (abs(newX - oldX) < simplify) {
+        if (Math.abs(newX - oldX) < simplify) {
             const valueY = getDataY(start);
-            minVal = min(minVal, valueY);
-            maxVal = max(maxVal, valueY);
+            minVal = Math.min(minVal, valueY);
+            maxVal = Math.max(maxVal, valueY);
         } else {
             ctx.lineTo(oldX, valueToPixelY(minVal));
             // Only add the second point if it differs from the first.
@@ -420,13 +412,12 @@ function calculateAvgValue(
     simplify: number,
     index: number,
 ): number {
-    const abs = Math.abs;
     const oldX = valueToPixelX(getDataX(index));
     let sum = getDataY(index);
     let count = 1;
     for (let i = index + 1; i < length; ++i) {
         const newX = valueToPixelX(getDataX(i));
-        if (abs(newX - oldX) < simplify) {
+        if (Math.abs(newX - oldX) < simplify) {
             sum += getDataY(i);
             ++count;
         } else {
@@ -435,7 +426,7 @@ function calculateAvgValue(
     }
     for (let i = index - 1; i > -1; --i) {
         const newX = valueToPixelX(getDataX(i));
-        if (abs(newX - oldX) < simplify) {
+        if (Math.abs(newX - oldX) < simplify) {
             sum += getDataY(i);
             ++count;
         } else {
@@ -453,22 +444,20 @@ function calculateMinValue(
     simplify: number,
     index: number,
 ): number {
-    const abs = Math.abs;
-    const min = Math.min;
     const oldX = valueToPixelX(getDataX(index));
     let minVal = getDataY(index);
     for (let i = index + 1; i < length; ++i) {
         const newX = valueToPixelX(getDataX(i));
-        if (abs(newX - oldX) < simplify) {
-            minVal = min(minVal, getDataY(i));
+        if (Math.abs(newX - oldX) < simplify) {
+            minVal = Math.min(minVal, getDataY(i));
         } else {
             break;
         }
     }
     for (let i = index - 1; i > -1; --i) {
         const newX = valueToPixelX(getDataX(i));
-        if (abs(newX - oldX) < simplify) {
-            minVal = min(minVal, getDataY(i));
+        if (Math.abs(newX - oldX) < simplify) {
+            minVal = Math.min(minVal, getDataY(i));
         } else {
             break;
         }
@@ -484,22 +473,20 @@ function calculateMaxValue(
     simplify: number,
     index: number,
 ): number {
-    const abs = Math.abs;
-    const max = Math.max;
     const oldX = valueToPixelX(getDataX(index));
     let maxVal = getDataY(index);
     for (let i = index + 1; i < length; ++i) {
         const newX = valueToPixelX(getDataX(i));
-        if (abs(newX - oldX) < simplify) {
-            maxVal = max(maxVal, getDataY(i));
+        if (Math.abs(newX - oldX) < simplify) {
+            maxVal = Math.max(maxVal, getDataY(i));
         } else {
             break;
         }
     }
     for (let i = index - 1; i > -1; --i) {
         const newX = valueToPixelX(getDataX(i));
-        if (abs(newX - oldX) < simplify) {
-            maxVal = max(maxVal, getDataY(i));
+        if (Math.abs(newX - oldX) < simplify) {
+            maxVal = Math.max(maxVal, getDataY(i));
         } else {
             break;
         }
